@@ -52,7 +52,7 @@ Images have no hash-derived fallback.
 
 ## Environment variables
 
-Domain values are hostnames without a scheme or path.
+All three variables are required. The Python application loads `.env` from the project directory; existing environment variables take precedence. Domain values are hostnames without a scheme or path.
 
 | Variable              | Example                | Purpose                                  |
 |-----------------------|------------------------|------------------------------------------|
@@ -60,12 +60,14 @@ Domain values are hostnames without a scheme or path.
 | `TARGET_STORE_DOMAIN` | `plugins.deckbrew.xyz` | Upstream Decky store domain              |
 | `TARGET_CDN_DOMAIN`   | `cdn.tzatzikiweeb.moe` | Upstream CDN domain                      |
 
-```bash
-# example
-export DOMAIN=decky.example.com
-export TARGET_STORE_DOMAIN=plugins.deckbrew.xyz
-export TARGET_CDN_DOMAIN=cdn.tzatzikiweeb.moe
+Example `.env`:
+```dotenv
+DOMAIN=decky.example.com
+TARGET_STORE_DOMAIN=plugins.deckbrew.xyz
+TARGET_CDN_DOMAIN=cdn.tzatzikiweeb.moe
 ```
+
+Caddy reads `DOMAIN` from its process environment; it does not load the application's `.env` automatically.
 
 ## HTTPS with Caddy
 
@@ -156,4 +158,3 @@ Responses:
 
 Sources: [store route](https://github.com/SteamDeckHomebrew/decky-plugin-store/blob/main/plugin_store/api/__init__.py),
 [Decky installer](https://github.com/SteamDeckHomebrew/decky-loader/blob/main/backend/decky_loader/browser.py).
-

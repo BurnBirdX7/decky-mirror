@@ -3,6 +3,8 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+import constants
+
 app = FastAPI(title="Decky Mirror")
 # The IDE reports a protocol mismatch for FastAPI's documented middleware API.
 # noinspection PyTypeChecker
