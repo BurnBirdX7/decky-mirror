@@ -1,0 +1,13 @@
+[project]
+name = "decky-mirror"
+version = "0.1.0"
+description = "Minimal Decky store mirror server skeleton"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+]
+
+[tool.uv]
+package = false
+
