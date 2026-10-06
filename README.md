@@ -1,7 +1,7 @@
 # Decky Store Mirror
 
-Minimal FastAPI server skeleton. All application endpoints return HTTP 501
-with `{"detail":"Not implemented"}`. No upstream requests or caching are implemented.
+FastAPI mirror of the Decky Store API. Rewrites catalogue resource URLs and
+streams images and archives from upstream without resource caching.
 
 ## Requirements
 
@@ -48,6 +48,25 @@ Images have no hash-derived fallback.
 
 - `GET /resources/hash/{hash}` — retrieve `https://${TARGET_CDN_DOMAIN}/file/steam-deck-homebrew/versions/${hash}.zip`.
 - `GET /resources/base64/{base64url}` — decode the complete original URL and relay that resource.
+`base64url` is unpadded URL-safe Base64 of the original URL's UTF-8 bytes.
+Resources must use absolute HTTP(S) URLs without embedded credentials.
+Only public destinations are allowed: loopback, private, link-local, unspecified,
+multicast and reserved IPv4/IPv6 addresses are blocked. DNS lookups are rejected
+if any result is non-public, and connections use the validated numeric addresses.
+Each resource redirect is checked before connecting; up to 10 redirects are followed.
+
+Mirror errors:
+
+| Status | Cause |
+| --- | --- |
+| `400` | Invalid resource encoding, hash or URL syntax. |
+| `403` | Non-public destination, including DNS results or redirects. |
+| `422` | Invalid query parameters. |
+| `502` | Invalid upstream catalogue, connection failure, missing redirect destination or more than 10 redirects. |
+| `504` | Upstream timeout (30 seconds per request). |
+
+Upstream HTTP statuses and relevant response headers are relayed. Failures after
+resource streaming begins terminate the stream; the upstream response is closed.
 
 
 ## Environment variables
