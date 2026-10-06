@@ -46,7 +46,7 @@ class DestinationTests(unittest.TestCase):
                 validate_destination(parse_url("http://" + host + "/"))
 
     def test_aiohttp_helper_defines_literal_classification(self):
-        with patch("security.is_ip_address", return_value=False) as classifier:
+        with patch("security.aiohttp.helpers.is_ip_address", return_value=False) as classifier:
             validate_destination(parse_url("http://127.0.0.1/"))
         classifier.assert_called_once_with("127.0.0.1")
 

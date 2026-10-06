@@ -42,7 +42,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
             "sort_by": "date",
             "sort_direction": "asc",
         }
-        await UpstreamClient(session).fetch_catalogue(parameters, "3.2.0")
+        await UpstreamClient(session).get_catalogue(parameters, "3.2.0")
         request = session.requests[0]
         self.assertEqual(request.url.host, "store.example")
         self.assertEqual(request.url.query.getall("tags"), ["one", "two,three"])
@@ -51,7 +51,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_increment_encodes_names_and_forwards_boolean(self):
         session = FakeSession(FakeResponse(status=200))
-        await UpstreamClient(session).record_install("Plugin & тест", "1.0+test", False)
+        await UpstreamClient(session).post_install_increment("Plugin & тест", "1.0+test", False)
         request = session.requests[0]
         self.assertEqual(request.method, "POST")
         self.assertIn("Plugin%20%26%20%D1%82%D0%B5%D1%81%D1%82", request.url.raw_path)
@@ -65,7 +65,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
             429,
             {"Retry-After": "42", "Content-Type": "text/plain", "Connection": "close"},
         )
-        response = await UpstreamClient(FakeSession(reply)).record_install("Test", "1", True)
+        response = await UpstreamClient(FakeSession(reply)).post_install_increment("Test", "1", True)
         self.assertEqual((response.status, response.content), (429, b"rate limited"))
         self.assertEqual(response.headers["retry-after"], "42")
         self.assertNotIn("connection", response.headers)
@@ -81,7 +81,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
                 "Content-Type": "application/zip",
             },
         )
-        result = await UpstreamClient(FakeSession(reply)).open_resource(URL("https://cdn.example/archive"))
+        result = await UpstreamClient(FakeSession(reply)).get_resource_with_redirects(URL("https://cdn.example/archive"))
         response = ResourceStreamingResponse(result)
         body = await render_response(response)
         self.assertEqual(body, content)
@@ -94,7 +94,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         second = FakeResponse(status=307, headers={"Location": "https://other.example/final"})
         final = FakeResponse(b"done")
         session = FakeSession(first, second, final)
-        result = await UpstreamClient(session).open_resource(URL("https://cdn.example/path/start"))
+        result = await UpstreamClient(session).get_resource_with_redirects(URL("https://cdn.example/path/start"))
         self.assertIs(result, final)
         self.assertEqual(str(session.requests[1].url), "https://cdn.example/next?token=a%2Bb")
         self.assertEqual(session.requests[2].url.host, "other.example")
@@ -106,7 +106,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         final = FakeResponse(b"done")
         session = FakeSession(*redirects, final)
         self.assertIs(
-            await UpstreamClient(session).open_resource(URL("https://cdn.example/start")),
+            await UpstreamClient(session).get_resource_with_redirects(URL("https://cdn.example/start")),
             final,
         )
         self.assertEqual(len(session.requests), 11)
@@ -117,7 +117,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         redirects = [FakeResponse(status=302, headers={"Location": f"/step/{index}"}) for index in range(11)]
         session = FakeSession(*redirects)
         with self.assertRaises(RedirectLimitError):
-            await UpstreamClient(session).open_resource(URL("https://cdn.example/start"))
+            await UpstreamClient(session).get_resource_with_redirects(URL("https://cdn.example/start"))
         self.assertEqual(len(session.requests), 11)
         self.assertTrue(all(reply.closed for reply in redirects))
 
@@ -125,21 +125,21 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         reply = FakeResponse(status=302, headers={"Location": "http://169.254.169.254/metadata"})
         session = FakeSession(reply)
         with self.assertRaises(BlockedDestinationError):
-            await UpstreamClient(session).open_resource(URL("https://cdn.example/start"))
+            await UpstreamClient(session).get_resource_with_redirects(URL("https://cdn.example/start"))
         self.assertEqual(len(session.requests), 1)
         self.assertTrue(reply.closed)
 
     async def test_private_literal_is_blocked_before_any_request(self):
         session = FakeSession()
         with self.assertRaises(BlockedDestinationError):
-            await UpstreamClient(session).open_resource(URL("http://127.0.0.1/private"))
+            await UpstreamClient(session).get_resource_with_redirects(URL("http://127.0.0.1/private"))
         self.assertEqual(session.requests, [])
 
     async def test_wrapped_dns_block_is_forbidden_not_bad_gateway(self):
         key = SimpleNamespace(host="blocked.example", port=443, ssl=True)
         error = aiohttp.ClientConnectorDNSError(key, BlockedAddressLookupError("private address"))
         with self.assertRaises(BlockedDestinationError):
-            await UpstreamClient(FakeSession(error)).open_resource(URL("https://blocked.example/resource"))
+            await UpstreamClient(FakeSession(error)).get_resource_with_redirects(URL("https://blocked.example/resource"))
 
     async def test_real_connector_blocks_private_dns_without_opening_socket(self):
         resolver = PublicAddressResolver()
@@ -155,7 +155,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
                     ),
                     self.assertRaises(BlockedDestinationError),
                 ):
-                    await UpstreamClient(session).open_resource(URL("https://blocked.example/resource"))
+                    await UpstreamClient(session).get_resource_with_redirects(URL("https://blocked.example/resource"))
             socket_factory.assert_not_called()
         finally:
             await resolver.close()
@@ -167,18 +167,18 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         ]
         for error, expected in cases:
             with self.subTest(error=type(error).__name__), self.assertRaises(expected):
-                await UpstreamClient(FakeSession(error)).open_resource(URL("https://cdn.example/resource"))
+                await UpstreamClient(FakeSession(error)).get_resource_with_redirects(URL("https://cdn.example/resource"))
 
     async def test_buffered_read_failure_closes_response(self):
         reply = FakeResponse(read_error=TimeoutError())
         with self.assertRaises(UpstreamTimeoutError):
-            await UpstreamClient(FakeSession(reply)).fetch_catalogue({}, None)
+            await UpstreamClient(FakeSession(reply)).get_catalogue({}, None)
         self.assertTrue(reply.closed)
 
     async def test_redirect_without_location_is_rejected_and_closed(self):
         reply = FakeResponse(status=302)
         with self.assertRaises(UpstreamRequestError):
-            await UpstreamClient(FakeSession(reply)).open_resource(URL("https://cdn.example/resource"))
+            await UpstreamClient(FakeSession(reply)).get_resource_with_redirects(URL("https://cdn.example/resource"))
         self.assertTrue(reply.closed)
 
     async def test_stream_failure_closes_response_once(self):
@@ -233,7 +233,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         reply = FakeResponse(status=302, headers={"Location": "\nhttps://cdn.example/next"})
         session = FakeSession(reply)
         with self.assertRaises(InvalidResourceError):
-            await UpstreamClient(session).open_resource(URL("https://cdn.example/start"))
+            await UpstreamClient(session).get_resource_with_redirects(URL("https://cdn.example/start"))
         self.assertEqual(len(session.requests), 1)
         self.assertTrue(reply.closed)
 

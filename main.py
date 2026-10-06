@@ -60,7 +60,7 @@ async def plugins(
     decky_version: Annotated[str | None, Header(alias="X-Decky-Version")] = None,
 ) -> Response:
     """Mirror the catalogue, substituting artifact and image URLs with resource URLs."""
-    response = await client.fetch_catalogue(parameters.to_parameters(), decky_version)
+    response = await client.get_catalogue(parameters.to_parameters(), decky_version)
     if response.status != 200:
         return response.to_response()
     return JSONResponse(substitute_catalogue_resource_urls(response.content, constants.DOMAIN))
@@ -69,21 +69,22 @@ async def plugins(
 @store_api.post("/plugins/{plugin_name}/versions/{version_name}/increment")
 async def increment(plugin_name: str, version_name: str, client: Client, isUpdate: bool = True) -> Response:
     """Relay installation statistics to the upstream store."""
-    response = await client.record_install(plugin_name, version_name, isUpdate)
+    response = await client.post_install_increment(plugin_name, version_name, isUpdate)
     return response.to_response()
 
 
 @resources_api.get("/hash/{hash}")
 async def resource_by_hash(hash: str, client: Client) -> StreamingResponse:
     """Relay the archive at the upstream CDN's hash-derived URL."""
-    url = build_archive_url(hash, constants.TARGET_CDN_DOMAIN)
-    return ResourceStreamingResponse(await client.open_resource(url))
+    destination_url = build_archive_url(hash, constants.TARGET_CDN_DOMAIN)
+    return ResourceStreamingResponse(await client.get_resource_with_redirects(destination_url))
 
 
 @resources_api.get("/base64/{base64url}")
 async def resource_by_base64(base64url: str, client: Client) -> StreamingResponse:
     """Relay an explicit resource URL encoded as padded URL-safe Base64."""
-    return ResourceStreamingResponse(await client.open_resource(decode_resource_url(base64url)))
+    destination_url = decode_resource_url(base64url)
+    return ResourceStreamingResponse(await client.get_resource_with_redirects(destination_url))
 
 
 app.include_router(store_api)

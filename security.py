@@ -1,8 +1,8 @@
 import socket
 from ipaddress import IPv4Address, IPv6Address, ip_address
 
+import aiohttp.helpers
 from aiohttp.abc import ResolveResult
-from aiohttp.helpers import is_ip_address
 from aiohttp.resolver import ThreadedResolver
 from yarl import URL
 
@@ -48,12 +48,14 @@ def is_public_address(address: IPv4Address | IPv6Address) -> bool:
 
 def validate_destination(url: URL) -> None:
     hostname = url.host or ""
-    if not is_ip_address(hostname):
-        return
+    if not aiohttp.helpers.is_ip_address(hostname):
+        return  # Only IP addresses are tested, domain validation is delegated to a resolver
+    
     try:
-        address = ip_address(hostname)
+        address: IPv4Address | IPv6Address = ip_address(hostname)
     except ValueError as error:
         raise InvalidResourceError("Invalid destination address") from error
+    
     if not is_public_address(address):
         raise BlockedDestinationError("Resource destination must be public")
 
