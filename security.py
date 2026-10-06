@@ -12,17 +12,18 @@ class BlockedAddressLookupError(OSError):
     pass
 
 
-def parse_http_url(value: str) -> URL:
+def parse_url(value: str) -> URL:
     validate_url_text(value)
     try:
         url = URL(value, encoded=True)
-        validate_http_url(url)
+        validate_url(url)
         return url
     except (ValueError, UnicodeError) as error:
         raise InvalidResourceError("Invalid resource URL") from error
 
 
 def validate_url_text(value: str) -> None:
+    """Checks if the resource URL contains whitespace or control characters"""
     if not isinstance(value, str) or not value:
         raise InvalidResourceError("Expected a nonempty resource URL")
     if any(
@@ -34,12 +35,12 @@ def validate_url_text(value: str) -> None:
         )
 
 
-def validate_http_url(url: URL) -> None:
+def validate_url(url: URL) -> None:
     if (
         url.scheme not in ("http", "https")
-        or not url.host
-        or url.user is not None
-        or url.port is None
+        or not url.host             # must not be falsy
+        or url.user is not None     # must not have user
+        or url.port is None         # must have port
     ):
         raise InvalidResourceError(
             "Expected an absolute HTTP(S) URL without credentials"

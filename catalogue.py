@@ -7,7 +7,7 @@ from typing import Any
 from yarl import URL
 
 from errors import InvalidCatalogueError, InvalidResourceError
-from security import parse_http_url
+from security import parse_url
 
 SHA256_PATTERN = r"[0-9a-fA-F]{64}"
 BASE64URL_PATTERN = r"[A-Za-z0-9_-]+"
@@ -48,13 +48,12 @@ def rewrite_version(version: dict[str, Any], domain: str) -> dict[str, Any]:
 
 
 def encoded_resource_url(url: str, domain: str) -> str:
-    parse_http_url(url)
-    return f"https://{domain}/resources/base64/{encode_url(url)}"
+    parse_url(url)  # Validates url
+    return f"https://{domain}/resources/base64/{encode_resource_url(url)}"
 
 
-def encode_url(url: str) -> str:
+def encode_resource_url(url: str) -> str:
     return urlsafe_b64encode(url.encode("utf-8")).decode("ascii").rstrip("=")
-
 
 def decode_resource_url(token: str) -> URL:
     if not fullmatch(BASE64URL_PATTERN, token):
@@ -65,9 +64,9 @@ def decode_resource_url(token: str) -> URL:
         ).decode("utf-8")
     except (ValueError, Base64Error) as error:
         raise InvalidResourceError("Invalid resource URL encoding") from error
-    if encode_url(url) != token:
+    if encode_resource_url(url) != token:
         raise InvalidResourceError("Non-canonical resource URL encoding")
-    return parse_http_url(url)
+    return parse_url(url)
 
 
 def validate_archive_hash(archive_hash: str) -> None:
@@ -75,8 +74,8 @@ def validate_archive_hash(archive_hash: str) -> None:
         raise InvalidResourceError("Expected a SHA-256 archive hash")
 
 
-def archive_resource_url(archive_hash: str, cdn_domain: str) -> URL:
+def make_archive_url(archive_hash: str, cdn_domain: str) -> URL:
     validate_archive_hash(archive_hash)
-    return parse_http_url(
+    return parse_url(
         f"https://{cdn_domain}/file/steam-deck-homebrew/versions/{archive_hash}.zip"
     )

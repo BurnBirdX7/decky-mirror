@@ -9,7 +9,7 @@ from errors import BlockedDestinationError, InvalidResourceError
 from security import (
     BlockedAddressLookupError,
     PublicAddressResolver,
-    parse_http_url,
+    parse_url,
     validate_destination,
 )
 
@@ -36,17 +36,17 @@ class DestinationTests(unittest.TestCase):
         ]
         for host in hosts:
             with self.subTest(host=host), self.assertRaises(BlockedDestinationError):
-                validate_destination(parse_http_url("http://" + host + "/"))
+                validate_destination(parse_url("http://" + host + "/"))
 
     def test_localhost_names_are_blocked_without_dns(self):
         for host in ("localhost", "LOCALHOST.", "sub.localhost"):
             with self.subTest(host=host), self.assertRaises(BlockedDestinationError):
-                validate_destination(parse_http_url("http://" + host + "/"))
+                validate_destination(parse_url("http://" + host + "/"))
 
     def test_public_literals_are_allowed(self):
         for host in ("1.1.1.1", "8.8.8.8", "[2606:4700:4700::1111]"):
             with self.subTest(host=host):
-                validate_destination(parse_http_url("https://" + host + "/"))
+                validate_destination(parse_url("https://" + host + "/"))
 
     def test_numeric_shorthand_cannot_bypass_dns_validation(self):
         for host in ("127.1", "2130706433", "0177.0.0.1"):

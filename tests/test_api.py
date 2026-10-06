@@ -20,7 +20,7 @@ with patch.dict(os.environ, TEST_ENVIRONMENT):
     import main
     from upstream import UpstreamClient, get_upstream_client
 
-from catalogue import encode_url
+from catalogue import encode_resource_url
 from security import BlockedAddressLookupError
 
 
@@ -57,11 +57,11 @@ class ApiTests(unittest.TestCase):
         )
         self.assertEqual(
             plugin["versions"][1]["artifact"],
-            "https://mirror.example/resources/base64/" + encode_url(ARTIFACT_URL),
+            "https://mirror.example/resources/base64/" + encode_resource_url(ARTIFACT_URL),
         )
         self.assertEqual(
             plugin["image_url"],
-            "https://mirror.example/resources/base64/" + encode_url(IMAGE_URL),
+            "https://mirror.example/resources/base64/" + encode_resource_url(IMAGE_URL),
         )
         self.assertEqual(plugin["unknown_field"], {"preserved": True})
         self.assertEqual(
@@ -101,7 +101,7 @@ class ApiTests(unittest.TestCase):
         self.session.results.append(
             FakeResponse(b"PNG", headers={"Content-Type": "image/png"})
         )
-        response = self.client.get("/resources/base64/" + encode_url(IMAGE_URL))
+        response = self.client.get("/resources/base64/" + encode_resource_url(IMAGE_URL))
         self.assertEqual(response.content, b"PNG")
         self.assertEqual(response.headers["content-type"], "image/png")
         self.assertEqual(str(self.session.requests[0].url), IMAGE_URL)
@@ -110,7 +110,7 @@ class ApiTests(unittest.TestCase):
         self.session.results.append(
             FakeResponse(b"not found", 404, {"Content-Type": "text/plain"})
         )
-        response = self.client.get("/resources/base64/" + encode_url(ARTIFACT_URL))
+        response = self.client.get("/resources/base64/" + encode_resource_url(ARTIFACT_URL))
         self.assertEqual((response.status_code, response.content), (404, b"not found"))
         self.assertEqual(str(self.session.requests[0].url), ARTIFACT_URL)
 
@@ -135,7 +135,7 @@ class ApiTests(unittest.TestCase):
         for path in (
             "/resources/hash/bad",
             "/resources/base64/A",
-            "/resources/base64/" + encode_url("file:///etc/passwd"),
+            "/resources/base64/" + encode_resource_url("file:///etc/passwd"),
         ):
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 400)
@@ -149,7 +149,7 @@ class ApiTests(unittest.TestCase):
             "http://[::1]/",
         ):
             with self.subTest(url=url):
-                response = self.client.get("/resources/base64/" + encode_url(url))
+                response = self.client.get("/resources/base64/" + encode_resource_url(url))
                 self.assertEqual(response.status_code, 403)
         self.assertEqual(self.session.requests, [])
 
@@ -159,7 +159,7 @@ class ApiTests(unittest.TestCase):
             aiohttp.ClientConnectorDNSError(key, BlockedAddressLookupError("private"))
         )
         response = self.client.get(
-            "/resources/base64/" + encode_url("https://private.example/resource")
+            "/resources/base64/" + encode_resource_url("https://private.example/resource")
         )
         self.assertEqual(response.status_code, 403)
 
@@ -167,7 +167,7 @@ class ApiTests(unittest.TestCase):
         self.session.results.append(
             FakeResponse(status=302, headers={"Location": "http://127.0.0.1/"})
         )
-        response = self.client.get("/resources/base64/" + encode_url(ARTIFACT_URL))
+        response = self.client.get("/resources/base64/" + encode_resource_url(ARTIFACT_URL))
         self.assertEqual(response.status_code, 403)
         self.assertEqual(len(self.session.requests), 1)
 
@@ -175,7 +175,7 @@ class ApiTests(unittest.TestCase):
         self.session.results.extend(
             FakeResponse(status=302, headers={"Location": "/next"}) for _ in range(11)
         )
-        response = self.client.get("/resources/base64/" + encode_url(ARTIFACT_URL))
+        response = self.client.get("/resources/base64/" + encode_resource_url(ARTIFACT_URL))
         self.assertEqual(response.status_code, 502)
         self.assertEqual(len(self.session.requests), 11)
 

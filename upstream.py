@@ -20,7 +20,7 @@ from errors import (
 from security import (
     BlockedAddressLookupError,
     PublicAddressResolver,
-    parse_http_url,
+    parse_url,
     validate_destination,
 )
 
@@ -61,7 +61,7 @@ class UpstreamClient:
     async def fetch_catalogue(
         self, parameters: dict[str, str | list[str]], decky_version: str | None
     ) -> StoreResponse:
-        url = parse_http_url(
+        url = parse_url(
             f"https://{constants.TARGET_STORE_DOMAIN}/plugins"
         ).with_query(parameters)
         headers = (
@@ -114,7 +114,7 @@ class UpstreamClient:
 
 
 def build_increment_url(plugin_name: str, version_name: str, is_update: bool) -> URL:
-    url = parse_http_url(
+    url = parse_url(
         f"https://{constants.TARGET_STORE_DOMAIN}/plugins/{quote(plugin_name, safe='')}"
         f"/versions/{quote(version_name, safe='')}/increment"
     )
@@ -128,7 +128,7 @@ def resolve_redirect(response: aiohttp.ClientResponse, redirect_count: int) -> U
         location = response.headers.get("Location")
         if not location:
             raise UpstreamRequestError("Upstream redirect has no destination")
-        return parse_http_url(str(response.url.join(URL(location, encoded=True))))
+        return parse_url(str(response.url.join(URL(location, encoded=True))))
     finally:
         response.close()
 

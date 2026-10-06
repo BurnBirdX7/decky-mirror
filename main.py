@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 import constants
-from catalogue import archive_resource_url, decode_resource_url, rewrite_catalogue
+from catalogue import make_archive_url, decode_resource_url, rewrite_catalogue
 from errors import MirrorError
 from upstream import UpstreamClient, get_upstream_client, lifespan, resource_response
 
@@ -69,7 +69,7 @@ async def increment(
 @resources_api.get("/hash/{hash}")
 async def resource_by_hash(hash: str, client: Client) -> StreamingResponse:
     """Relay the archive at the upstream CDN's hash-derived URL."""
-    url = archive_resource_url(hash, constants.TARGET_CDN_DOMAIN)
+    url = make_archive_url(hash, constants.TARGET_CDN_DOMAIN)
     return resource_response(await client.open_resource(url))
 
 

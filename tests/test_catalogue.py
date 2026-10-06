@@ -2,7 +2,7 @@ import copy
 import json
 import unittest
 
-from catalogue import decode_resource_url, encode_url, rewrite_catalogue
+from catalogue import decode_resource_url, encode_resource_url, rewrite_catalogue
 from errors import InvalidCatalogueError, InvalidResourceError
 from tests.support import ARCHIVE_HASH, ARTIFACT_URL, IMAGE_URL, plugin_catalogue
 
@@ -31,11 +31,11 @@ class CatalogueTests(unittest.TestCase):
         rewritten = self.rewrite(plugin_catalogue([version]))[0]
         self.assertEqual(
             rewritten["versions"][0]["artifact"],
-            "https://mirror.example/resources/base64/" + encode_url(ARTIFACT_URL),
+            "https://mirror.example/resources/base64/" + encode_resource_url(ARTIFACT_URL),
         )
         self.assertEqual(
             rewritten["image_url"],
-            "https://mirror.example/resources/base64/" + encode_url(IMAGE_URL),
+            "https://mirror.example/resources/base64/" + encode_resource_url(IMAGE_URL),
         )
 
     def test_rewriting_preserves_fields_hashes_order_and_original_input(self):
@@ -62,8 +62,8 @@ class CatalogueTests(unittest.TestCase):
         ]
         for url in urls:
             with self.subTest(url=url):
-                self.assertEqual(str(decode_resource_url(encode_url(url))), url)
-                self.assertNotIn("=", encode_url(url))
+                self.assertEqual(str(decode_resource_url(encode_resource_url(url))), url)
+                self.assertNotIn("=", encode_resource_url(url))
 
     def test_invalid_catalogue_content_is_rejected(self):
         invalid = [b"not json", b"{}", b"[null]", b'[{"versions":null}]']
@@ -106,4 +106,4 @@ class CatalogueTests(unittest.TestCase):
         ]
         for url in urls:
             with self.subTest(url=url), self.assertRaises(InvalidResourceError):
-                decode_resource_url(encode_url(url))
+                decode_resource_url(encode_resource_url(url))
