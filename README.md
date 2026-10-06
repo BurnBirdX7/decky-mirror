@@ -1,6 +1,6 @@
 # Decky Store Mirror
 
-FastAPI mirror of the Decky Store API. Rewrites catalogue resource URLs and
+FastAPI mirror of the Decky Store API. Substitutes catalogue resource URLs and
 streams images and archives from upstream without resource caching.
 
 ## Requirements
@@ -30,7 +30,7 @@ Catalogue CORS allows `https://steamloopback.host`, `GET`, and the
 
 Mirrors the Decky Store API at `TARGET_STORE_DOMAIN`:
 
-- `GET /plugins` — relay the catalogue and rewrite resource URLs.
+- `GET /plugins` — relay the catalogue and substitute resource URLs.
 - `POST /plugins/{plugin_name}/versions/{version_name}/increment` — relay installation statistics.
 
 See detailed description at [Upstream API](#upstream-api). Mirror's response always contains `artifact` string:
@@ -48,7 +48,9 @@ Images have no hash-derived fallback.
 
 - `GET /resources/hash/{hash}` — retrieve `https://${TARGET_CDN_DOMAIN}/file/steam-deck-homebrew/versions/${hash}.zip`.
 - `GET /resources/base64/{base64url}` — decode the complete original URL and relay that resource.
-`base64url` is unpadded URL-safe Base64 of the original URL's UTF-8 bytes.
+`base64url` is padded URL-safe Base64 of the original URL's UTF-8 bytes.
+Decoding validates URL syntax; IP literals are checked before connecting, and
+hostnames are checked through their resolved DNS addresses.
 Resources must use absolute HTTP(S) URLs without embedded credentials.
 Only public destinations are allowed: loopback, private, link-local, unspecified,
 multicast and reserved IPv4/IPv6 addresses are blocked. DNS lookups are rejected

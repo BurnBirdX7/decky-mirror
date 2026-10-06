@@ -11,13 +11,20 @@ from fastapi import FastAPI
 from starlette.requests import ClientDisconnect
 from yarl import URL
 
-from tests.support import TEST_ENVIRONMENT, FakeResponse, FakeSession
+from tests.support import (
+    TEST_ENVIRONMENT,
+    FakeResponse,
+    FakeSession,
+    call_response,
+    render_response,
+)
 
 with patch.dict(os.environ, TEST_ENVIRONMENT):
-    from upstream import UpstreamClient, lifespan, resource_response
+    from upstream import ResourceStreamingResponse, UpstreamClient, lifespan
 
 from errors import (
     BlockedDestinationError,
+    InvalidResourceError,
     RedirectLimitError,
     UpstreamRequestError,
     UpstreamTimeoutError,
@@ -79,8 +86,8 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         result = await UpstreamClient(FakeSession(reply)).open_resource(
             URL("https://cdn.example/archive")
         )
-        response = resource_response(result)
-        body = b"".join([chunk async for chunk in response.body_iterator])
+        response = ResourceStreamingResponse(result)
+        body = await render_response(response)
         self.assertEqual(body, content)
         self.assertEqual(response.headers["content-encoding"], "gzip")
         self.assertEqual(response.headers["content-length"], str(len(content)))
@@ -214,26 +221,28 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
             )
         self.assertTrue(reply.closed)
 
-    async def test_stream_failure_closes_response(self):
+    async def test_stream_failure_closes_response_once(self):
         reply = FakeResponse(b"partial", stream_error=aiohttp.ClientPayloadError())
-        response = resource_response(reply)
         with self.assertRaises(aiohttp.ClientPayloadError):
-            async for chunk in response.body_iterator:
-                pass
-        self.assertTrue(reply.closed)
+            await render_response(ResourceStreamingResponse(reply))
+        self.assertEqual(reply.close_calls, 1)
 
-    async def test_client_disconnect_closes_response(self):
-        reply = FakeResponse(b"more than one chunk")
-        response = resource_response(reply)
-        await anext(response.body_iterator)
-        await response.body_iterator.aclose()
-        self.assertTrue(reply.closed)
-
-    async def test_cleanup_without_starting_body_closes_response(self):
+    async def test_failure_before_body_closes_response_once(self):
         reply = FakeResponse(b"unread")
-        response = resource_response(reply)
-        await response.background()
-        self.assertTrue(reply.closed)
+
+        async def send(message):
+            raise OSError("Client disconnected before response headers")
+
+        with self.assertRaises(ClientDisconnect):
+            await call_response(ResourceStreamingResponse(reply), send)
+        self.assertEqual(reply.close_calls, 1)
+
+    async def test_response_completion_closes_response_once(self):
+        reply = FakeResponse(b"complete")
+        self.assertEqual(
+            await render_response(ResourceStreamingResponse(reply)), b"complete"
+        )
+        self.assertEqual(reply.close_calls, 1)
 
     async def test_lifespan_closes_shared_session_on_shutdown(self):
         application = FastAPI()
@@ -242,9 +251,9 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(session.closed)
         self.assertTrue(session.closed)
 
-    async def test_asgi_disconnect_closes_response_immediately(self):
+    async def test_asgi_disconnect_closes_response_once(self):
         reply = FakeResponse(b"several chunks")
-        response = resource_response(reply)
+        response = ResourceStreamingResponse(reply)
 
         async def receive():
             await asyncio.Event().wait()
@@ -260,4 +269,27 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         }
         with self.assertRaises(ClientDisconnect):
             await response(scope, receive, send)
+        self.assertEqual(reply.close_calls, 1)
+
+    async def test_redirect_with_invalid_raw_text_is_not_followed(self):
+        reply = FakeResponse(
+            status=302, headers={"Location": "\nhttps://cdn.example/next"}
+        )
+        session = FakeSession(reply)
+        with self.assertRaises(InvalidResourceError):
+            await UpstreamClient(session).open_resource(
+                URL("https://cdn.example/start")
+            )
+        self.assertEqual(len(session.requests), 1)
         self.assertTrue(reply.closed)
+
+    async def test_asgi_cancellation_closes_response_once(self):
+        reply = FakeResponse(b"streamed bytes")
+
+        async def send(message):
+            if message["type"] == "http.response.body":
+                raise asyncio.CancelledError()
+
+        with self.assertRaises(asyncio.CancelledError):
+            await call_response(ResourceStreamingResponse(reply), send)
+        self.assertEqual(reply.close_calls, 1)

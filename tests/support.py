@@ -1,3 +1,4 @@
+import asyncio
 import json
 from collections import deque
 from dataclasses import dataclass
@@ -56,6 +57,7 @@ class FakeResponse:
         self.read_error = read_error
         self.url = URL("https://public.example/")
         self.closed = False
+        self.close_calls = 0
 
     @classmethod
     def catalogue(cls, plugins):
@@ -70,6 +72,7 @@ class FakeResponse:
 
     def close(self):
         self.closed = True
+        self.close_calls += 1
 
 
 class FakeRequestContext:
@@ -106,3 +109,25 @@ class FakeSession:
         if isinstance(result, FakeResponse):
             result.url = url
         return FakeRequestContext(result)
+
+
+async def call_response(response, send):
+    async def receive():
+        await asyncio.Event().wait()
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+    }
+    await response(scope, receive, send)
+
+
+async def render_response(response):
+    messages = []
+
+    async def send(message):
+        messages.append(message)
+
+    await call_response(response, send)
+    return b"".join(message.get("body", b"") for message in messages)

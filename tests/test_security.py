@@ -1,5 +1,6 @@
 import socket
 import unittest
+from ipaddress import ip_address
 from unittest.mock import AsyncMock, patch
 
 from aiohttp.resolver import ThreadedResolver
@@ -9,6 +10,7 @@ from errors import BlockedDestinationError, InvalidResourceError
 from security import (
     BlockedAddressLookupError,
     PublicAddressResolver,
+    is_public_address,
     parse_url,
     validate_destination,
 )
@@ -38,10 +40,15 @@ class DestinationTests(unittest.TestCase):
             with self.subTest(host=host), self.assertRaises(BlockedDestinationError):
                 validate_destination(parse_url("http://" + host + "/"))
 
-    def test_localhost_names_are_blocked_without_dns(self):
-        for host in ("localhost", "LOCALHOST.", "sub.localhost"):
-            with self.subTest(host=host), self.assertRaises(BlockedDestinationError):
+    def test_hostnames_pass_the_surface_check(self):
+        for host in ("example.com", "localhost", "LOCALHOST.", "sub.localhost"):
+            with self.subTest(host=host):
                 validate_destination(parse_url("http://" + host + "/"))
+
+    def test_aiohttp_helper_defines_literal_classification(self):
+        with patch("security.is_ip_address", return_value=False) as classifier:
+            validate_destination(parse_url("http://127.0.0.1/"))
+        classifier.assert_called_once_with("127.0.0.1")
 
     def test_public_literals_are_allowed(self):
         for host in ("1.1.1.1", "8.8.8.8", "[2606:4700:4700::1111]"):
@@ -52,6 +59,51 @@ class DestinationTests(unittest.TestCase):
         for host in ("127.1", "2130706433", "0177.0.0.1"):
             with self.subTest(host=host), self.assertRaises(InvalidResourceError):
                 validate_destination(URL("http://" + host + "/"))
+
+    def test_public_address_predicate_accepts_parsed_addresses(self):
+        self.assertTrue(is_public_address(ip_address("1.1.1.1")))
+        self.assertFalse(is_public_address(ip_address("127.0.0.1")))
+
+
+class UrlValidationTests(unittest.TestCase):
+    def test_default_and_explicit_ports_are_allowed(self):
+        for value, port in (
+            ("https://example.com/", 443),
+            ("http://example.com/", 80),
+            ("https://example.com:8443/", 8443),
+            ("http://example.com:0/", 0),
+        ):
+            with self.subTest(url=value):
+                self.assertEqual(parse_url(value).port, port)
+
+    def test_malformed_ports_are_rejected_during_parsing(self):
+        for value in (
+            "https://example.com:invalid/",
+            "https://example.com:65536/",
+            "https://example.com:-1/",
+        ):
+            with self.subTest(url=value), self.assertRaises(InvalidResourceError):
+                parse_url(value)
+
+    def test_relative_redirect_is_resolved_against_base_url(self):
+        base = URL("https://example.com/directory/start")
+        self.assertEqual(
+            str(parse_url("../next?sig=a%2Bb", base)),
+            "https://example.com/next?sig=a%2Bb",
+        )
+
+    def test_raw_redirect_text_is_checked_before_normalization(self):
+        base = URL("https://example.com/start")
+        for location in (
+            "\nhttps://example.com/next",
+            "/next\t",
+            "https://example.com/\x00",
+        ):
+            with (
+                self.subTest(location=location),
+                self.assertRaises(InvalidResourceError),
+            ):
+                parse_url(location, base)
 
 
 class ResolverTests(unittest.IsolatedAsyncioTestCase):
@@ -104,3 +156,16 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
             self.assertRaises(OSError),
         ):
             await self.resolver.resolve("unknown.example")
+
+    async def test_localhost_and_aliases_are_rejected_by_dns_results(self):
+        for hostname in ("localhost", "LOCALHOST.", "loopback.example"):
+            with (
+                self.subTest(host=hostname),
+                patch.object(
+                    ThreadedResolver,
+                    "resolve",
+                    AsyncMock(return_value=[{"host": "127.0.0.1"}]),
+                ),
+                self.assertRaises(BlockedAddressLookupError),
+            ):
+                await self.resolver.resolve(hostname)

@@ -6,9 +6,18 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 import constants
-from catalogue import make_archive_url, decode_resource_url, rewrite_catalogue
+from catalogue import (
+    build_archive_url,
+    decode_resource_url,
+    substitute_catalogue_resource_urls,
+)
 from errors import MirrorError
-from upstream import UpstreamClient, get_upstream_client, lifespan, resource_response
+from upstream import (
+    ResourceStreamingResponse,
+    UpstreamClient,
+    get_upstream_client,
+    lifespan,
+)
 
 
 class CatalogueQuery(BaseModel):
@@ -50,11 +59,13 @@ async def plugins(
     client: Client,
     decky_version: Annotated[str | None, Header(alias="X-Decky-Version")] = None,
 ) -> Response:
-    """Mirror the catalogue, rewriting artifact and image URLs to resource URLs."""
+    """Mirror the catalogue, substituting artifact and image URLs with resource URLs."""
     response = await client.fetch_catalogue(parameters.to_parameters(), decky_version)
     if response.status != 200:
         return response.to_response()
-    return JSONResponse(rewrite_catalogue(response.content, constants.DOMAIN))
+    return JSONResponse(
+        substitute_catalogue_resource_urls(response.content, constants.DOMAIN)
+    )
 
 
 @store_api.post("/plugins/{plugin_name}/versions/{version_name}/increment")
@@ -69,14 +80,16 @@ async def increment(
 @resources_api.get("/hash/{hash}")
 async def resource_by_hash(hash: str, client: Client) -> StreamingResponse:
     """Relay the archive at the upstream CDN's hash-derived URL."""
-    url = make_archive_url(hash, constants.TARGET_CDN_DOMAIN)
-    return resource_response(await client.open_resource(url))
+    url = build_archive_url(hash, constants.TARGET_CDN_DOMAIN)
+    return ResourceStreamingResponse(await client.open_resource(url))
 
 
 @resources_api.get("/base64/{base64url}")
 async def resource_by_base64(base64url: str, client: Client) -> StreamingResponse:
-    """Relay an explicit resource URL encoded as unpadded URL-safe Base64."""
-    return resource_response(await client.open_resource(decode_resource_url(base64url)))
+    """Relay an explicit resource URL encoded as padded URL-safe Base64."""
+    return ResourceStreamingResponse(
+        await client.open_resource(decode_resource_url(base64url))
+    )
 
 
 app.include_router(store_api)

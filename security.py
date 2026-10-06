@@ -1,7 +1,8 @@
 import socket
-from ipaddress import ip_address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 
 from aiohttp.abc import ResolveResult
+from aiohttp.helpers import is_ip_address
 from aiohttp.resolver import ThreadedResolver
 from yarl import URL
 
@@ -12,10 +13,12 @@ class BlockedAddressLookupError(OSError):
     pass
 
 
-def parse_url(value: str) -> URL:
+def parse_url(value: str, base_url: URL | None = None) -> URL:
     validate_url_text(value)
     try:
         url = URL(value, encoded=True)
+        if base_url is not None:
+            url = base_url.join(url)
         validate_url(url)
         return url
     except (ValueError, UnicodeError) as error:
@@ -23,7 +26,6 @@ def parse_url(value: str) -> URL:
 
 
 def validate_url_text(value: str) -> None:
-    """Checks if the resource URL contains whitespace or control characters"""
     if not isinstance(value, str) or not value:
         raise InvalidResourceError("Expected a nonempty resource URL")
     if any(
@@ -38,35 +40,28 @@ def validate_url_text(value: str) -> None:
 def validate_url(url: URL) -> None:
     if (
         url.scheme not in ("http", "https")
-        or not url.host             # must not be falsy
-        or url.user is not None     # must not have user
-        or url.port is None         # must have port
+        or not url.host
+        or url.user is not None
+        or url.port is None  # Access triggers yarl's lazy port syntax/range validation.
     ):
         raise InvalidResourceError(
             "Expected an absolute HTTP(S) URL without credentials"
         )
 
 
-def is_public_address(value: str) -> bool:
-    address = ip_address(value)
+def is_public_address(address: IPv4Address | IPv6Address) -> bool:
     return address.is_global and not address.is_multicast and not address.is_reserved
 
 
 def validate_destination(url: URL) -> None:
-    hostname = (url.host or "").rstrip(".").casefold()
-    if hostname == "localhost" or hostname.endswith(".localhost"):
-        raise BlockedDestinationError("Resource destination must be public")
-    validate_address_literal(hostname)
-
-
-def validate_address_literal(hostname: str) -> None:
+    hostname = url.host or ""
+    if not is_ip_address(hostname):
+        return
     try:
         address = ip_address(hostname)
-    except ValueError:
-        if ":" in hostname or hostname.replace(".", "").isdigit():
-            raise InvalidResourceError("Invalid destination address")
-        return
-    if not is_public_address(str(address)):
+    except ValueError as error:
+        raise InvalidResourceError("Invalid destination address") from error
+    if not is_public_address(address):
         raise BlockedDestinationError("Resource destination must be public")
 
 
@@ -80,7 +75,9 @@ class PublicAddressResolver(ThreadedResolver):
         addresses = await super().resolve(host, port, family)
         if not addresses:
             raise OSError("Destination has no resolved addresses")
-        if any(not is_public_address(address["host"]) for address in addresses):
+        if any(
+            not is_public_address(ip_address(address["host"])) for address in addresses
+        ):
             raise BlockedAddressLookupError(
                 "Resource destination must resolve to public addresses"
             )
