@@ -13,9 +13,7 @@ SHA256_PATTERN = r"[0-9a-fA-F]{64}"
 BASE64URL_PATTERN = r"(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}==|[A-Za-z0-9_-]{3}=)?"
 
 
-def substitute_catalogue_resource_urls(
-    content: bytes, domain: str
-) -> list[dict[str, Any]]:
+def substitute_catalogue_resource_urls(content: bytes, domain: str) -> list[dict[str, Any]]:
     try:
         catalogue = json.loads(content)
         if not isinstance(catalogue, list):
@@ -25,23 +23,18 @@ def substitute_catalogue_resource_urls(
         raise InvalidCatalogueError("Invalid upstream catalogue") from error
 
 
-def substitute_plugin_resource_urls(
-    plugin: dict[str, Any], domain: str
-) -> dict[str, Any]:
+def substitute_plugin_resource_urls(plugin: dict[str, Any], domain: str) -> dict[str, Any]:
     if not isinstance(plugin, dict) or not isinstance(plugin.get("versions"), list):
         raise InvalidCatalogueError("Invalid upstream plugin")
     substituted_plugin = dict(plugin)
     substituted_plugin["versions"] = [
-        substitute_version_artifact_url(version, domain)
-        for version in plugin["versions"]
+        substitute_version_artifact_url(version, domain) for version in plugin["versions"]
     ]
     substituted_plugin["image_url"] = build_resource_url(plugin["image_url"], domain)
     return substituted_plugin
 
 
-def substitute_version_artifact_url(
-    version: dict[str, Any], domain: str
-) -> dict[str, Any]:
+def substitute_version_artifact_url(version: dict[str, Any], domain: str) -> dict[str, Any]:
     if not isinstance(version, dict):
         raise InvalidCatalogueError("Invalid upstream version")
     substituted_version = dict(version)
@@ -83,6 +76,4 @@ def validate_archive_hash(archive_hash: str) -> None:
 
 def build_archive_url(archive_hash: str, cdn_domain: str) -> URL:
     validate_archive_hash(archive_hash)
-    return parse_url(
-        f"https://{cdn_domain}/file/steam-deck-homebrew/versions/{archive_hash}.zip"
-    )
+    return parse_url(f"https://{cdn_domain}/file/steam-deck-homebrew/versions/{archive_hash}.zip")

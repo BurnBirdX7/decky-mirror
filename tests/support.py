@@ -26,9 +26,7 @@ def plugin_catalogue(versions=None):
             "tags": ["test"],
             "image_url": IMAGE_URL,
             "visible": True,
-            "versions": versions
-            if versions is not None
-            else [{"name": "1.0.0", "hash": ARCHIVE_HASH}],
+            "versions": versions if versions is not None else [{"name": "1.0.0", "hash": ARCHIVE_HASH}],
             "unknown_field": {"preserved": True},
         }
     ]
@@ -47,9 +45,7 @@ class FakeContent:
 
 
 class FakeResponse:
-    def __init__(
-        self, content=b"", status=200, headers=None, read_error=None, stream_error=None
-    ):
+    def __init__(self, content=b"", status=200, headers=None, read_error=None, stream_error=None):
         self.status = status
         self.headers = CIMultiDict(headers or {})
         self.body = content
@@ -61,9 +57,7 @@ class FakeResponse:
 
     @classmethod
     def catalogue(cls, plugins):
-        return cls(
-            json.dumps(plugins).encode(), headers={"Content-Type": "application/json"}
-        )
+        return cls(json.dumps(plugins).encode(), headers={"Content-Type": "application/json"})
 
     async def read(self):
         if self.read_error is not None:

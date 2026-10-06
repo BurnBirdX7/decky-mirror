@@ -63,15 +63,11 @@ async def plugins(
     response = await client.fetch_catalogue(parameters.to_parameters(), decky_version)
     if response.status != 200:
         return response.to_response()
-    return JSONResponse(
-        substitute_catalogue_resource_urls(response.content, constants.DOMAIN)
-    )
+    return JSONResponse(substitute_catalogue_resource_urls(response.content, constants.DOMAIN))
 
 
 @store_api.post("/plugins/{plugin_name}/versions/{version_name}/increment")
-async def increment(
-    plugin_name: str, version_name: str, client: Client, isUpdate: bool = True
-) -> Response:
+async def increment(plugin_name: str, version_name: str, client: Client, isUpdate: bool = True) -> Response:
     """Relay installation statistics to the upstream store."""
     response = await client.record_install(plugin_name, version_name, isUpdate)
     return response.to_response()
@@ -87,9 +83,7 @@ async def resource_by_hash(hash: str, client: Client) -> StreamingResponse:
 @resources_api.get("/base64/{base64url}")
 async def resource_by_base64(base64url: str, client: Client) -> StreamingResponse:
     """Relay an explicit resource URL encoded as padded URL-safe Base64."""
-    return ResourceStreamingResponse(
-        await client.open_resource(decode_resource_url(base64url))
-    )
+    return ResourceStreamingResponse(await client.open_resource(decode_resource_url(base64url)))
 
 
 app.include_router(store_api)

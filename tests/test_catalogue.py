@@ -13,9 +13,7 @@ from tests.support import ARCHIVE_HASH, ARTIFACT_URL, IMAGE_URL, plugin_catalogu
 
 class CatalogueTests(unittest.TestCase):
     def substitute(self, catalogue):
-        return substitute_catalogue_resource_urls(
-            json.dumps(catalogue).encode(), "mirror.example"
-        )
+        return substitute_catalogue_resource_urls(json.dumps(catalogue).encode(), "mirror.example")
 
     def test_missing_and_null_artifacts_use_hash_routes(self):
         versions = [
@@ -37,8 +35,7 @@ class CatalogueTests(unittest.TestCase):
         substituted = self.substitute(plugin_catalogue([version]))[0]
         self.assertEqual(
             substituted["versions"][0]["artifact"],
-            "https://mirror.example/resources/base64/"
-            + encode_resource_url(ARTIFACT_URL),
+            "https://mirror.example/resources/base64/" + encode_resource_url(ARTIFACT_URL),
         )
         self.assertEqual(
             substituted["image_url"],
@@ -69,9 +66,7 @@ class CatalogueTests(unittest.TestCase):
         ]
         for url in urls:
             with self.subTest(url=url):
-                self.assertEqual(
-                    str(decode_resource_url(encode_resource_url(url))), url
-                )
+                self.assertEqual(str(decode_resource_url(encode_resource_url(url))), url)
                 self.assertEqual(len(encode_resource_url(url)) % 4, 0)
 
     def test_invalid_catalogue_content_is_rejected(self):
@@ -89,11 +84,7 @@ class CatalogueTests(unittest.TestCase):
                 self.subTest(artifact=artifact),
                 self.assertRaises(InvalidCatalogueError),
             ):
-                self.substitute(
-                    plugin_catalogue(
-                        [{"name": "1", "hash": ARCHIVE_HASH, "artifact": artifact}]
-                    )
-                )
+                self.substitute(plugin_catalogue([{"name": "1", "hash": ARCHIVE_HASH, "artifact": artifact}]))
         catalogue = plugin_catalogue()
         catalogue[0]["image_url"] = ""
         with self.assertRaises(InvalidCatalogueError):
@@ -141,9 +132,7 @@ class CatalogueTests(unittest.TestCase):
             "http://[::1]/",
         ):
             with self.subTest(url=url):
-                self.assertEqual(
-                    str(decode_resource_url(encode_resource_url(url))), url
-                )
+                self.assertEqual(str(decode_resource_url(encode_resource_url(url))), url)
 
     def test_invalid_utf8_after_base64_decoding_is_rejected(self):
         with self.assertRaises(InvalidResourceError):

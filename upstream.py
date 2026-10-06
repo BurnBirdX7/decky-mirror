@@ -57,20 +57,12 @@ class UpstreamClient:
     def __init__(self, session: aiohttp.ClientSession):
         self.session = session
 
-    async def fetch_catalogue(
-        self, parameters: dict[str, str | list[str]], decky_version: str | None
-    ) -> StoreResponse:
-        url = parse_url(f"https://{constants.TARGET_STORE_DOMAIN}/plugins").with_query(
-            parameters
-        )
-        headers = (
-            {"X-Decky-Version": decky_version} if decky_version is not None else {}
-        )
+    async def fetch_catalogue(self, parameters: dict[str, str | list[str]], decky_version: str | None) -> StoreResponse:
+        url = parse_url(f"https://{constants.TARGET_STORE_DOMAIN}/plugins").with_query(parameters)
+        headers = {"X-Decky-Version": decky_version} if decky_version is not None else {}
         return await self.fetch_store_response("GET", url, headers)
 
-    async def record_install(
-        self, plugin_name: str, version_name: str, is_update: bool
-    ) -> StoreResponse:
+    async def record_install(self, plugin_name: str, version_name: str, is_update: bool) -> StoreResponse:
         url = build_increment_url(plugin_name, version_name, is_update)
         return await self.fetch_store_response("POST", url)
 
@@ -107,9 +99,7 @@ class UpstreamClient:
     async def request_resource(self, url: URL) -> aiohttp.ClientResponse:
         validate_destination(url)
         with translate_upstream_errors():
-            return await self.session.request(
-                "GET", url, allow_redirects=False, auto_decompress=False
-            )
+            return await self.session.request("GET", url, allow_redirects=False, auto_decompress=False)
 
 
 def build_increment_url(plugin_name: str, version_name: str, is_update: bool) -> URL:
@@ -140,17 +130,13 @@ def translate_upstream_errors() -> Iterator[None]:
         raise UpstreamTimeoutError("Upstream timed out") from error
     except aiohttp.ClientConnectorError as error:
         if isinstance(error.os_error, BlockedAddressLookupError):
-            raise BlockedDestinationError(
-                "Resource destination must be public"
-            ) from error
+            raise BlockedDestinationError("Resource destination must be public") from error
         raise UpstreamRequestError("Unable to connect to upstream") from error
     except (aiohttp.ClientError, OSError) as error:
         raise UpstreamRequestError("Upstream request failed") from error
 
 
-def select_headers(
-    response: aiohttp.ClientResponse, names: tuple[str, ...]
-) -> dict[str, str]:
+def select_headers(response: aiohttp.ClientResponse, names: tuple[str, ...]) -> dict[str, str]:
     return {name: response.headers[name] for name in names if name in response.headers}
 
 

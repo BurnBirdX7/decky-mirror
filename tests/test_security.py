@@ -127,9 +127,7 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
     async def test_mixed_dns_results_are_blocked(self):
         addresses = [{"host": "1.1.1.1"}, {"host": "10.0.0.1"}]
         with (
-            patch.object(
-                ThreadedResolver, "resolve", AsyncMock(return_value=addresses)
-            ),
+            patch.object(ThreadedResolver, "resolve", AsyncMock(return_value=addresses)),
             self.assertRaises(BlockedAddressLookupError),
         ):
             await self.resolver.resolve("mixed.example")

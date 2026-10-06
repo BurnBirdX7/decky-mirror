@@ -28,13 +28,8 @@ def parse_url(value: str, base_url: URL | None = None) -> URL:
 def validate_url_text(value: str) -> None:
     if not isinstance(value, str) or not value:
         raise InvalidResourceError("Expected a nonempty resource URL")
-    if any(
-        character.isspace() or ord(character) < 32 or ord(character) == 127
-        for character in value
-    ):
-        raise InvalidResourceError(
-            "Resource URL contains whitespace or control characters"
-        )
+    if any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in value):
+        raise InvalidResourceError("Resource URL contains whitespace or control characters")
 
 
 def validate_url(url: URL) -> None:
@@ -44,9 +39,7 @@ def validate_url(url: URL) -> None:
         or url.user is not None
         or url.port is None  # Access triggers yarl's lazy port syntax/range validation.
     ):
-        raise InvalidResourceError(
-            "Expected an absolute HTTP(S) URL without credentials"
-        )
+        raise InvalidResourceError("Expected an absolute HTTP(S) URL without credentials")
 
 
 def is_public_address(address: IPv4Address | IPv6Address) -> bool:
@@ -75,11 +68,7 @@ class PublicAddressResolver(ThreadedResolver):
         addresses = await super().resolve(host, port, family)
         if not addresses:
             raise OSError("Destination has no resolved addresses")
-        if any(
-            not is_public_address(ip_address(address["host"])) for address in addresses
-        ):
-            raise BlockedAddressLookupError(
-                "Resource destination must resolve to public addresses"
-            )
+        if any(not is_public_address(ip_address(address["host"])) for address in addresses):
+            raise BlockedAddressLookupError("Resource destination must resolve to public addresses")
         # Numeric results go directly to the connector, avoiding a second DNS lookup.
         return addresses
