@@ -6,7 +6,7 @@ from aiohttp.abc import ResolveResult
 from aiohttp.resolver import ThreadedResolver
 from yarl import URL
 
-from errors import BlockedDestinationError, InvalidResourceError
+from .errors import BlockedDestinationError, InvalidResourceError
 
 
 class BlockedAddressLookupError(OSError):

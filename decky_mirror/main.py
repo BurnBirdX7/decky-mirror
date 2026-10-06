@@ -5,14 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-import constants
-from catalogue import (
+from . import constants
+from .catalogue import (
     build_archive_url,
     decode_resource_url,
     substitute_catalogue_resource_urls,
 )
-from errors import MirrorError
-from upstream import (
+from .errors import MirrorError
+from .upstream import (
     ResourceStreamingResponse,
     UpstreamClient,
     get_upstream_client,

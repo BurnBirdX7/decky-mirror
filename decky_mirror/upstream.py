@@ -9,14 +9,14 @@ from fastapi.responses import Response, StreamingResponse
 from starlette.types import Receive, Scope, Send
 from yarl import URL
 
-import constants
-from errors import (
+from . import constants
+from .errors import (
     BlockedDestinationError,
     RedirectLimitError,
     UpstreamRequestError,
     UpstreamTimeoutError,
 )
-from security import (
+from .security import (
     BlockedAddressLookupError,
     PublicAddressResolver,
     parse_url,

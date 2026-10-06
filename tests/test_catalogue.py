@@ -2,12 +2,12 @@ import copy
 import json
 import unittest
 
-from catalogue import (
+from decky_mirror.catalogue import (
     decode_resource_url,
     encode_resource_url,
     substitute_catalogue_resource_urls,
 )
-from errors import InvalidCatalogueError, InvalidResourceError
+from decky_mirror.errors import InvalidCatalogueError, InvalidResourceError
 from tests.support import ARCHIVE_HASH, ARTIFACT_URL, IMAGE_URL, plugin_catalogue
 
 

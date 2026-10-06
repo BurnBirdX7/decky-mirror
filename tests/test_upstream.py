@@ -20,16 +20,16 @@ from tests.support import (
 )
 
 with patch.dict(os.environ, TEST_ENVIRONMENT):
-    from upstream import ResourceStreamingResponse, UpstreamClient, lifespan
+    from decky_mirror.upstream import ResourceStreamingResponse, UpstreamClient, lifespan
 
-from errors import (
+from decky_mirror.errors import (
     BlockedDestinationError,
     InvalidResourceError,
     RedirectLimitError,
     UpstreamRequestError,
     UpstreamTimeoutError,
 )
-from security import BlockedAddressLookupError, PublicAddressResolver
+from decky_mirror.security import BlockedAddressLookupError, PublicAddressResolver
 
 
 class UpstreamTests(unittest.IsolatedAsyncioTestCase):

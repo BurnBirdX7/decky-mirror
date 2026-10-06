@@ -6,8 +6,8 @@ from typing import Any
 
 from yarl import URL
 
-from errors import InvalidCatalogueError, InvalidResourceError
-from security import parse_url
+from .errors import InvalidCatalogueError, InvalidResourceError
+from .security import parse_url
 
 SHA256_PATTERN = r"[0-9a-fA-F]{64}"
 BASE64URL_PATTERN = r"(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}==|[A-Za-z0-9_-]{3}=)?"

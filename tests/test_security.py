@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, patch
 from aiohttp.resolver import ThreadedResolver
 from yarl import URL
 
-from errors import BlockedDestinationError, InvalidResourceError
-from security import (
+from decky_mirror.errors import BlockedDestinationError, InvalidResourceError
+from decky_mirror.security import (
     BlockedAddressLookupError,
     PublicAddressResolver,
     is_public_address,
@@ -46,7 +46,7 @@ class DestinationTests(unittest.TestCase):
                 validate_destination(parse_url("http://" + host + "/"))
 
     def test_aiohttp_helper_defines_literal_classification(self):
-        with patch("security.aiohttp.helpers.is_ip_address", return_value=False) as classifier:
+        with patch("decky_mirror.security.aiohttp.helpers.is_ip_address", return_value=False) as classifier:
             validate_destination(parse_url("http://127.0.0.1/"))
         classifier.assert_called_once_with("127.0.0.1")
 

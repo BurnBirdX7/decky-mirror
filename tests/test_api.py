@@ -17,11 +17,11 @@ from tests.support import (
 )
 
 with patch.dict(os.environ, TEST_ENVIRONMENT):
-    import main
-    from upstream import UpstreamClient, get_upstream_client
+    from decky_mirror import main
+    from decky_mirror.upstream import UpstreamClient, get_upstream_client
 
-from catalogue import encode_resource_url
-from security import BlockedAddressLookupError
+from decky_mirror.catalogue import encode_resource_url
+from decky_mirror.security import BlockedAddressLookupError
 
 
 class ApiTests(unittest.TestCase):

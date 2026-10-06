@@ -12,11 +12,20 @@ streams images and archives from upstream without resource caching.
 
 ```sh
 uv sync --locked
-uv run uvicorn main:app --host 127.0.0.1 --port 8000
+uv run uvicorn decky_mirror.main:app --host 127.0.0.1 --port 8000
 ```
 
 Dependencies are locked in `uv.lock`; the local environment lives in `.venv`.
 This service does not require a package build step.
+
+Application code is in `decky_mirror/`; tests are in `tests/`.
+Run commands from the project root.
+
+To run the tests:
+
+```sh
+uv run python -m unittest discover -s tests -t .
+```
 
 ## API structure
 
