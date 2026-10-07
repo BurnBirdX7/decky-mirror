@@ -54,8 +54,9 @@ class StoreResponse:
 
 
 class UpstreamClient:
-    def __init__(self, session: aiohttp.ClientSession):
+    def __init__(self, session: aiohttp.ClientSession, http_version: str):
         self.session = session
+        self.via = f"{http_version} {constants.DOMAIN}"
 
     async def get_catalogue(self, parameters: dict[str, str | list[str]], decky_version: str | None) -> StoreResponse:
         url = parse_url(f"https://{constants.TARGET_STORE_DOMAIN}/plugins").with_query(parameters)
@@ -80,7 +81,7 @@ class UpstreamClient:
         validate_destination(url)
         with UpstreamClient.__translate_upstream_errors():
             async with self.session.request(
-                method, url, headers=headers, allow_redirects=False, auto_decompress=True
+                method, url, headers={**(headers or {}), "Via": self.via}, allow_redirects=False, auto_decompress=True
             ) as response:
                 response_headers = _select_headers(response, STORE_RESPONSE_HEADERS)
                 response_content = await response.read()
@@ -89,7 +90,9 @@ class UpstreamClient:
     async def __fetch_streaming(self, url: URL) -> aiohttp.ClientResponse:
         validate_destination(url)
         with UpstreamClient.__translate_upstream_errors():
-            return await self.session.request("GET", url, allow_redirects=False, auto_decompress=False)
+            return await self.session.request(
+                "GET", url, headers={"Via": self.via}, allow_redirects=False, auto_decompress=False
+            )
 
     @staticmethod
     def __build_increment_url(plugin_name: str, version_name: str, is_update: bool) -> URL:
@@ -162,12 +165,13 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             auto_decompress=False,
             cookie_jar=aiohttp.DummyCookieJar(),
             trust_env=False,
+            headers={"User-Agent": f"decky-mirror/{constants.VERSION} (+https://{constants.DOMAIN}/)"},
         ) as session:
-            application.state.upstream_client = UpstreamClient(session)
+            application.state.upstream_session = session
             yield
     finally:
         await resolver.close()
 
 
 def get_upstream_client(request: Request) -> UpstreamClient:
-    return request.app.state.upstream_client
+    return UpstreamClient(request.app.state.upstream_session, http_version=request.scope["http_version"])

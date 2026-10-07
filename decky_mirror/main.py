@@ -1,8 +1,9 @@
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -37,8 +38,10 @@ class CatalogueQuery(BaseModel):
         return parameters
 
 
+HOME_HTML = Path(__file__).with_name("home.html").read_text(encoding="utf-8").replace("{{VERSION}}", constants.VERSION)
+
 Client = Annotated[UpstreamClient, Depends(get_upstream_client)]
-app = FastAPI(title="Decky Mirror", lifespan=lifespan)
+app = FastAPI(title="Decky Mirror", version=constants.VERSION, lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # The IDE reports a protocol mismatch for FastAPI's documented middleware API.
@@ -52,6 +55,11 @@ app.add_middleware(
 
 store_api = APIRouter(tags=["Store API"])
 resources_api = APIRouter(prefix="/resources", tags=["Resources API"])
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def home() -> HTMLResponse:
+    return HTMLResponse(HOME_HTML)
 
 
 @app.exception_handler(MirrorError)

@@ -33,9 +33,23 @@ class ApiTests(unittest.TestCase):
     def setUp(self):
         main.limiter.reset()
         self.session = FakeSession()
-        main.app.dependency_overrides[get_upstream_client] = lambda: UpstreamClient(self.session)
+        main.app.dependency_overrides[get_upstream_client] = lambda: UpstreamClient(self.session, http_version="1.1")
         self.client = self.enterContext(TestClient(main.app))
         self.addCleanup(main.app.dependency_overrides.clear)
+
+    def test_home_shows_version_and_links_without_upstream_or_rate_limit(self):
+        for _ in range(6):
+            response = self.client.get("/")
+            self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+        self.assertIn("Decky Mirror " + main.constants.VERSION, response.text)
+        self.assertNotIn("{{VERSION}}", response.text)
+        for link in ("https://github.com/BurnBirdX7/decky-mirror", "/docs", "/plugins"):
+            self.assertIn(f'href="{link}"', response.text)
+        schema = self.client.get("/openapi.json").json()
+        self.assertEqual(schema["info"]["version"], main.constants.VERSION)
+        self.assertNotIn("/", schema["paths"])
+        self.assertEqual(self.session.requests, [])
 
     def test_unsigned_and_tampered_tokens_are_rejected_without_upstream_request(self):
         token = encode_resource_url(IMAGE_URL)

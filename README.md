@@ -29,6 +29,9 @@ uv run python -m unittest discover -s tests -t .
 
 ## API structure
 
+`GET /` serves a small information page with the version and links to the
+repository, API documentation, and plugin catalogue.
+
 Interactive API documentation: http://127.0.0.1:8000/docs
 OpenAPI schema: http://127.0.0.1:8000/openapi.json
 
