@@ -10,6 +10,10 @@ class BlockedDestinationError(MirrorError):
     status_code = 403
 
 
+class InvalidResourceSignatureError(MirrorError):
+    status_code = 403
+
+
 class InvalidCatalogueError(MirrorError):
     pass
 

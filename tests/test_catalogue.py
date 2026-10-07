@@ -1,14 +1,20 @@
 import copy
 import json
+import os
 import unittest
+from unittest.mock import patch
 
-from decky_mirror.catalogue import (
-    decode_resource_url,
-    encode_resource_url,
-    substitute_catalogue_resource_urls,
-)
+from tests.support import ARCHIVE_HASH, ARTIFACT_URL, IMAGE_URL, TEST_ENVIRONMENT, plugin_catalogue
+
+with patch.dict(os.environ, TEST_ENVIRONMENT):
+    from decky_mirror.catalogue import (
+        decode_resource_url,
+        encode_resource_url,
+        substitute_catalogue_resource_urls,
+    )
+    from decky_mirror.resource_signing import sign_resource_token
+
 from decky_mirror.errors import InvalidCatalogueError, InvalidResourceError
-from tests.support import ARCHIVE_HASH, ARTIFACT_URL, IMAGE_URL, plugin_catalogue
 
 
 class CatalogueTests(unittest.TestCase):
@@ -35,11 +41,11 @@ class CatalogueTests(unittest.TestCase):
         substituted = self.substitute(plugin_catalogue([version]))[0]
         self.assertEqual(
             substituted["versions"][0]["artifact"],
-            "https://mirror.example/resources/base64/" + encode_resource_url(ARTIFACT_URL),
+            "https://mirror.example/resources/base64/" + sign_resource_token(encode_resource_url(ARTIFACT_URL)),
         )
         self.assertEqual(
             substituted["image_url"],
-            "https://mirror.example/resources/base64/" + encode_resource_url(IMAGE_URL),
+            "https://mirror.example/resources/base64/" + sign_resource_token(encode_resource_url(IMAGE_URL)),
         )
 
     def test_substitution_preserves_fields_hashes_order_and_original_input(self):

@@ -21,7 +21,12 @@ with patch.dict(os.environ, TEST_ENVIRONMENT):
     from decky_mirror.upstream import UpstreamClient, get_upstream_client
 
 from decky_mirror.catalogue import encode_resource_url
+from decky_mirror.resource_signing import sign_resource_token
 from decky_mirror.security import BlockedAddressLookupError
+
+
+def signed_resource_token(url):
+    return sign_resource_token(encode_resource_url(url))
 
 
 class ApiTests(unittest.TestCase):
@@ -31,6 +36,34 @@ class ApiTests(unittest.TestCase):
         main.app.dependency_overrides[get_upstream_client] = lambda: UpstreamClient(self.session)
         self.client = self.enterContext(TestClient(main.app))
         self.addCleanup(main.app.dependency_overrides.clear)
+
+    def test_unsigned_and_tampered_tokens_are_rejected_without_upstream_request(self):
+        token = encode_resource_url(IMAGE_URL)
+        signed = sign_resource_token(token)
+        signature = signed.split(".")[1]
+        changed_signature = ("A" if signature[0] != "A" else "B") + signature[1:]
+        invalid_tokens = (
+            token,
+            token + "." + changed_signature,
+            encode_resource_url(ARTIFACT_URL) + "." + signature,
+            signed + ".extra",
+            signed + "=",
+            token + ".short",
+            "A." + signature,
+        )
+        for invalid in invalid_tokens:
+            with self.subTest(token=invalid):
+                response = self.client.get("/resources/base64/" + invalid)
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(response.json(), {"detail": "Invalid resource signature"})
+        self.assertEqual(self.session.requests, [])
+
+    def test_signed_url_preserves_unicode_escaping_and_query(self):
+        url = "https://images.example/тест.png?value=%2f&value=a+b&empty="
+        self.session.results.append(FakeResponse(b"image"))
+        response = self.client.get("/resources/base64/" + signed_resource_token(url))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(str(self.session.requests[0].url), url)
 
     def test_catalogue_substitutes_resource_routes_and_preserves_metadata(self):
         self.session.results.append(
@@ -56,11 +89,11 @@ class ApiTests(unittest.TestCase):
         )
         self.assertEqual(
             plugin["versions"][1]["artifact"],
-            "https://mirror.example/resources/base64/" + encode_resource_url(ARTIFACT_URL),
+            "https://mirror.example/resources/base64/" + signed_resource_token(ARTIFACT_URL),
         )
         self.assertEqual(
             plugin["image_url"],
-            "https://mirror.example/resources/base64/" + encode_resource_url(IMAGE_URL),
+            "https://mirror.example/resources/base64/" + signed_resource_token(IMAGE_URL),
         )
         self.assertEqual(plugin["unknown_field"], {"preserved": True})
         self.assertEqual(self.session.requests[0].url.query.getall("tags"), ["one", "two,three"])
@@ -94,14 +127,14 @@ class ApiTests(unittest.TestCase):
 
     def test_base64_image_uses_exact_upstream_url(self):
         self.session.results.append(FakeResponse(b"PNG", headers={"Content-Type": "image/png"}))
-        response = self.client.get("/resources/base64/" + encode_resource_url(IMAGE_URL))
+        response = self.client.get("/resources/base64/" + signed_resource_token(IMAGE_URL))
         self.assertEqual(response.content, b"PNG")
         self.assertEqual(response.headers["content-type"], "image/png")
         self.assertEqual(str(self.session.requests[0].url), IMAGE_URL)
 
     def test_resource_upstream_error_status_and_body_are_preserved(self):
         self.session.results.append(FakeResponse(b"not found", 404, {"Content-Type": "text/plain"}))
-        response = self.client.get("/resources/base64/" + encode_resource_url(ARTIFACT_URL))
+        response = self.client.get("/resources/base64/" + signed_resource_token(ARTIFACT_URL))
         self.assertEqual((response.status_code, response.content), (404, b"not found"))
         self.assertEqual(str(self.session.requests[0].url), ARTIFACT_URL)
 
@@ -117,8 +150,8 @@ class ApiTests(unittest.TestCase):
     def test_invalid_resources_return_bad_request_without_upstream_request(self):
         for path in (
             "/resources/hash/bad",
-            "/resources/base64/A",
-            "/resources/base64/" + encode_resource_url("file:///etc/passwd"),
+            "/resources/base64/" + sign_resource_token("A"),
+            "/resources/base64/" + signed_resource_token("file:///etc/passwd"),
         ):
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 400)
@@ -131,32 +164,32 @@ class ApiTests(unittest.TestCase):
             "http://[::1]/",
         ):
             with self.subTest(url=url):
-                response = self.client.get("/resources/base64/" + encode_resource_url(url))
+                response = self.client.get("/resources/base64/" + signed_resource_token(url))
                 self.assertEqual(response.status_code, 403)
         self.assertEqual(self.session.requests, [])
 
     def test_private_dns_error_returns_forbidden(self):
         key = SimpleNamespace(host="private.example", port=443, ssl=True)
         self.session.results.append(aiohttp.ClientConnectorDNSError(key, BlockedAddressLookupError("private")))
-        response = self.client.get("/resources/base64/" + encode_resource_url("https://private.example/resource"))
+        response = self.client.get("/resources/base64/" + signed_resource_token("https://private.example/resource"))
         self.assertEqual(response.status_code, 403)
 
     def test_localhost_is_rejected_by_resolver_not_surface_check(self):
         key = SimpleNamespace(host="localhost", port=80, ssl=False)
         self.session.results.append(aiohttp.ClientConnectorDNSError(key, BlockedAddressLookupError("loopback")))
-        response = self.client.get("/resources/base64/" + encode_resource_url("http://localhost/"))
+        response = self.client.get("/resources/base64/" + signed_resource_token("http://localhost/"))
         self.assertEqual(response.status_code, 403)
         self.assertEqual(len(self.session.requests), 1)
 
     def test_private_redirect_returns_forbidden_and_is_not_followed(self):
         self.session.results.append(FakeResponse(status=302, headers={"Location": "http://127.0.0.1/"}))
-        response = self.client.get("/resources/base64/" + encode_resource_url(ARTIFACT_URL))
+        response = self.client.get("/resources/base64/" + signed_resource_token(ARTIFACT_URL))
         self.assertEqual(response.status_code, 403)
         self.assertEqual(len(self.session.requests), 1)
 
     def test_eleventh_redirect_returns_bad_gateway(self):
         self.session.results.extend(FakeResponse(status=302, headers={"Location": "/next"}) for _ in range(11))
-        response = self.client.get("/resources/base64/" + encode_resource_url(ARTIFACT_URL))
+        response = self.client.get("/resources/base64/" + signed_resource_token(ARTIFACT_URL))
         self.assertEqual(response.status_code, 502)
         self.assertEqual(len(self.session.requests), 11)
 
@@ -192,7 +225,7 @@ class ApiTests(unittest.TestCase):
             ("GET", "/plugins", lambda: FakeResponse.catalogue([])),
             ("POST", "/plugins/Test/versions/1/increment", FakeResponse),
             ("GET", "/resources/hash/" + ARCHIVE_HASH, FakeResponse),
-            ("GET", "/resources/base64/" + encode_resource_url(IMAGE_URL), FakeResponse),
+            ("GET", "/resources/base64/" + signed_resource_token(IMAGE_URL), FakeResponse),
         )
         with patch("limits.storage.memory.time.time", return_value=1000):
             for method, path, reply in cases:
@@ -220,7 +253,7 @@ class ApiTests(unittest.TestCase):
     def test_query_parameters_share_the_same_quota(self):
         paths = (
             "/plugins?query=filter",
-            "/resources/base64/" + encode_resource_url(IMAGE_URL) + "?ignored=value",
+            "/resources/base64/" + signed_resource_token(IMAGE_URL) + "?ignored=value",
         )
         with patch("limits.storage.memory.time.time", return_value=1000):
             for path in paths:
@@ -247,7 +280,7 @@ class ApiTests(unittest.TestCase):
         with patch("limits.storage.memory.time.time", return_value=1000):
             for index in range(205):
                 self.session.results.append(FakeResponse(b"image"))
-                token = encode_resource_url(f"https://images.example/{index}.png")
+                token = signed_resource_token(f"https://images.example/{index}.png")
                 self.assertEqual(self.client.get("/resources/base64/" + token).status_code, 200)
             self.assertEqual(len(self.session.requests), 205)
 

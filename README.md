@@ -44,11 +44,11 @@ Mirrors the Decky Store API at `TARGET_STORE_DOMAIN`:
 
 See detailed description at [UPSTREAM.md](UPSTREAM.md). Mirror's response always contains `artifact` string:
 
-| Upstream value                       | Mirror URL                                        |
-|--------------------------------------|---------------------------------------------------|
-| `artifact` missing or `null`         | `https://${DOMAIN}/resources/hash/${hash}`        |
-| `artifact` contains an explicit URL  | `https://${DOMAIN}/resources/base64/${base64url}` |
-| `image_url` contains an explicit URL | `https://${DOMAIN}/resources/base64/${base64url}` |
+| Upstream value                       | Mirror URL                                                     |
+|--------------------------------------|----------------------------------------------------------------|
+| `artifact` missing or `null`         | `https://${DOMAIN}/resources/hash/${hash}`                     |
+| `artifact` contains an explicit URL  | `https://${DOMAIN}/resources/base64/${base64url}.${signature}` |
+| `image_url` contains an explicit URL | `https://${DOMAIN}/resources/base64/${base64url}.${signature}` |
 
 An empty artifact string is invalid; it does not trigger the hash fallback.
 Images have no hash-derived fallback.
@@ -56,7 +56,12 @@ Images have no hash-derived fallback.
 ### Resources API
 
 - `GET /resources/hash/{hash}` — retrieve `https://${TARGET_CDN_DOMAIN}/file/steam-deck-homebrew/versions/${hash}.zip`.
-- `GET /resources/base64/{base64url}` — decode the complete original URL and relay that resource.
+- `GET /resources/base64/{base64url}.{signature}` — verify the signature, decode the complete original URL and relay that resource.
+
+Catalogue links carry a 22-character signature (HMAC-SHA256 truncated to 16 bytes).
+Unsigned links and invalid signatures return `403` without contacting upstream.
+Links have no expiry; changing the signing key invalidates previously issued links.
+This feature is meant to prevent usage of the mirror as any-destination proxy.
 
 Upstream HTTP statuses and relevant response headers are relayed. Failures after
 resource streaming begins terminate the stream; the upstream response is closed.
@@ -64,20 +69,27 @@ resource streaming begins terminate the stream; the upstream response is closed.
 
 ## Environment variables
 
-All three variables are required. The Python application loads `.env` from the project directory; existing environment variables take precedence. Domain values are hostnames without a scheme or path.
+All four variables are required. The Python application loads `.env` from the project directory; existing environment variables take precedence. The three domain values are hostnames without a scheme or path.
 
-| Variable              | Example                | Purpose                                  |
-|-----------------------|------------------------|------------------------------------------|
-| `DOMAIN`              | `decky.example.com`    | Public mirror domain, also used by Caddy |
-| `TARGET_STORE_DOMAIN` | `plugins.deckbrew.xyz` | Upstream Decky store domain              |
-| `TARGET_CDN_DOMAIN`   | `cdn.tzatzikiweeb.moe` | Upstream CDN domain                      |
+| Variable               | Example                | Purpose                                                |
+|------------------------|------------------------|--------------------------------------------------------|
+| `DOMAIN`               | `decky.example.com`    | Public mirror domain, also used by Caddy               |
+| `TARGET_STORE_DOMAIN`  | `plugins.deckbrew.xyz` | Upstream Decky store domain                            |
+| `TARGET_CDN_DOMAIN`    | `cdn.tzatzikiweeb.moe` | Upstream CDN domain                                    |
+| `RESOURCE_SIGNING_KEY` | `random`               | Resource link signing secret or random key per process |
 
 Example `.env`:
 ```dotenv
 DOMAIN=decky.example.com
 TARGET_STORE_DOMAIN=plugins.deckbrew.xyz
 TARGET_CDN_DOMAIN=cdn.tzatzikiweeb.moe
+RESOURCE_SIGNING_KEY=random
 ```
+
+Set `RESOURCE_SIGNING_KEY=random` to generate a new key once per process start;
+previous links stop working after a restart and clients must refresh the catalogue.
+Any other nonempty value is used verbatim as a persistent UTF-8 secret, keeping
+links valid across restarts while that key remains unchanged.
 
 Caddy reads `DOMAIN` from its process environment; it does not load the application's `.env` automatically.
 

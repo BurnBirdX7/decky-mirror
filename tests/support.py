@@ -10,6 +10,7 @@ ARCHIVE_HASH = "a" * 64
 IMAGE_URL = "https://images.example/thumb.png?size=320"
 ARTIFACT_URL = "https://downloads.example/custom.zip?signature=a%2Bb&path=x%2Fy&empty="
 TEST_ENVIRONMENT = {
+    "RESOURCE_SIGNING_KEY": "test-resource-signing-key",
     "DOMAIN": "mirror.example",
     "TARGET_STORE_DOMAIN": "store.example",
     "TARGET_CDN_DOMAIN": "cdn.example",

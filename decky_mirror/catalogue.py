@@ -7,6 +7,7 @@ from typing import Any
 from yarl import URL
 
 from .errors import InvalidCatalogueError, InvalidResourceError
+from .resource_signing import sign_resource_token
 from .security import parse_url
 
 SHA256_PATTERN = r"[0-9a-fA-F]{64}"
@@ -52,7 +53,9 @@ def build_mirror_artifact_url(version: dict[str, Any], domain: str) -> str:
 
 def build_resource_url(url: str, domain: str) -> str:
     parse_url(url)  # Called to validate the resource URL.
-    return f"https://{domain}/resources/base64/{encode_resource_url(url)}"
+    encoded = encode_resource_url(url)
+    signed = sign_resource_token(encoded)
+    return f"https://{domain}/resources/base64/{signed}"
 
 
 def encode_resource_url(url: str) -> str:
