@@ -84,6 +84,14 @@ Caddy reads `DOMAIN` from its process environment; it does not load the applicat
 ## HTTPS with Caddy
 
 Run Uvicorn on `127.0.0.1:8000` and use Caddy as the public HTTPS entry point.
+For a systemd service, use the following entries in its `[Service]` section,
+replacing `/opt/decky-mirror` with the project directory:
+
+```ini
+WorkingDirectory=/opt/decky-mirror
+ExecStart=/opt/decky-mirror/.venv/bin/uvicorn decky_mirror.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
+```
+
 Save the following configuration as `Caddyfile`:
 
 ```caddyfile

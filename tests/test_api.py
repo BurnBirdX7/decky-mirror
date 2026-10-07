@@ -26,6 +26,7 @@ from decky_mirror.security import BlockedAddressLookupError
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
+        main.limiter.reset()
         self.session = FakeSession()
         main.app.dependency_overrides[get_upstream_client] = lambda: UpstreamClient(self.session)
         self.client = self.enterContext(TestClient(main.app))
@@ -185,3 +186,77 @@ class ApiTests(unittest.TestCase):
         response = self.client.get("/resources/hash/bad", headers={"Origin": headers["Origin"]})
         self.assertEqual(response.headers["access-control-allow-origin"], headers["Origin"])
         self.assertEqual(self.session.requests, [])
+
+    def test_all_handlers_limit_repeated_requests_before_contacting_upstream(self):
+        cases = (
+            ("GET", "/plugins", lambda: FakeResponse.catalogue([])),
+            ("POST", "/plugins/Test/versions/1/increment", FakeResponse),
+            ("GET", "/resources/hash/" + ARCHIVE_HASH, FakeResponse),
+            ("GET", "/resources/base64/" + encode_resource_url(IMAGE_URL), FakeResponse),
+        )
+        with patch("limits.storage.memory.time.time", return_value=1000):
+            for method, path, reply in cases:
+                with self.subTest(path=path):
+                    main.limiter.reset()
+                    self.session.results.extend(reply() for _ in range(5))
+                    before = len(self.session.requests)
+                    for _ in range(5):
+                        self.assertEqual(self.client.request(method, path).status_code, 200)
+                    response = self.client.request(method, path)
+                    self.assertEqual(response.status_code, 429)
+                    self.assertIn("error", response.json())
+                    self.assertEqual(len(self.session.requests), before + 5)
+
+    def test_limit_resets_after_window_expires(self):
+        with patch("limits.storage.memory.time.time", return_value=1000) as clock:
+            self.session.results.extend(FakeResponse.catalogue([]) for _ in range(6))
+            for _ in range(5):
+                self.assertEqual(self.client.get("/plugins").status_code, 200)
+            self.assertEqual(self.client.get("/plugins").status_code, 429)
+            clock.return_value = 1001.01
+            self.assertEqual(self.client.get("/plugins").status_code, 200)
+            self.assertEqual(len(self.session.requests), 6)
+
+    def test_query_parameters_share_the_same_quota(self):
+        paths = (
+            "/plugins?query=filter",
+            "/resources/base64/" + encode_resource_url(IMAGE_URL) + "?ignored=value",
+        )
+        with patch("limits.storage.memory.time.time", return_value=1000):
+            for path in paths:
+                with self.subTest(path=path):
+                    main.limiter.reset()
+                    before = len(self.session.requests)
+                    for index in range(5):
+                        self.session.results.append(FakeResponse.catalogue([]))
+                        self.assertEqual(self.client.get(path + str(index)).status_code, 200)
+                    self.assertEqual(self.client.get(path.split("?")[0]).status_code, 429)
+                    self.assertEqual(len(self.session.requests), before + 5)
+
+    def test_different_client_ips_have_independent_quotas(self):
+        with patch("limits.storage.memory.time.time", return_value=1000):
+            self.session.results.extend(FakeResponse.catalogue([]) for _ in range(6))
+            for _ in range(5):
+                self.assertEqual(self.client.get("/plugins").status_code, 200)
+            self.assertEqual(self.client.get("/plugins").status_code, 429)
+            with TestClient(main.app, client=("192.0.2.2", 12345)) as other_client:
+                self.assertEqual(other_client.get("/plugins").status_code, 200)
+            self.assertEqual(len(self.session.requests), 6)
+
+    def test_many_resource_paths_have_independent_quotas(self):
+        with patch("limits.storage.memory.time.time", return_value=1000):
+            for index in range(205):
+                self.session.results.append(FakeResponse(b"image"))
+                token = encode_resource_url(f"https://images.example/{index}.png")
+                self.assertEqual(self.client.get("/resources/base64/" + token).status_code, 200)
+            self.assertEqual(len(self.session.requests), 205)
+
+    def test_rate_limit_response_preserves_cors_headers(self):
+        with patch("limits.storage.memory.time.time", return_value=1000):
+            self.session.results.extend(FakeResponse.catalogue([]) for _ in range(5))
+            for _ in range(5):
+                self.client.get("/plugins")
+            response = self.client.get("/plugins", headers={"Origin": "https://steamloopback.host"})
+            self.assertEqual(response.status_code, 429)
+            self.assertEqual(response.headers["access-control-allow-origin"], "https://steamloopback.host")
+            self.assertEqual(len(self.session.requests), 5)
