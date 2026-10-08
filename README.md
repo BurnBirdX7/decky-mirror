@@ -104,7 +104,7 @@ replacing `/opt/decky-mirror` with the project directory:
 
 ```ini
 WorkingDirectory=/opt/decky-mirror
-ExecStart=/opt/decky-mirror/.venv/bin/uvicorn decky_mirror.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
+ExecStart=/opt/decky-mirror/.venv/bin/uvicorn decky_mirror.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.0/8,::1/128
 ```
 
 Save the following configuration as `Caddyfile`:

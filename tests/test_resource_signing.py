@@ -23,9 +23,9 @@ class ResourceSigningTests(unittest.TestCase):
         expected = urlsafe_b64encode(hmac.digest(key, token.encode("ascii"), "sha256")[:16]).decode().rstrip("=")
         with patch.object(resource_signing, "_SIGNING_KEY", key):
             signed = resource_signing.sign_resource_token(token)
-            self.assertEqual(signed, token + "." + expected)
-            self.assertEqual(len(signed) - len(token), 23)
-            self.assertEqual(resource_signing.unsign_resource_token(signed), token)
+            self.assertEqual(signed, expected)
+            self.assertEqual(len(signed), 22)
+            resource_signing.verify_signature(token, signed)
             self.assertEqual(resource_signing.sign_resource_token(token), signed)
 
     def test_different_key_rejects_previously_signed_token(self):
@@ -36,7 +36,7 @@ class ResourceSigningTests(unittest.TestCase):
             patch.object(resource_signing, "_SIGNING_KEY", b"second-key"),
             self.assertRaisesRegex(InvalidResourceSignatureError, "Invalid resource signature"),
         ):
-            resource_signing.unsign_resource_token(signed)
+            resource_signing.verify_signature(token, signed)
 
     def run_initialization(self, setting, assertions=""):
         environment = os.environ | TEST_ENVIRONMENT
@@ -74,7 +74,7 @@ class ResourceSigningTests(unittest.TestCase):
             "random",
             "    first = signing.sign_resource_token('AAAA')\n"
             "    assert signing.sign_resource_token('AAAA') == first\n"
-            "    assert signing.unsign_resource_token(first) == 'AAAA'\n"
+            "    signing.verify_signature('AAAA', first)\n"
             "    generate.assert_called_once_with(32)\n",
         )
         self.assertEqual(result.returncode, 0, result.stderr)

@@ -41,11 +41,13 @@ class CatalogueTests(unittest.TestCase):
         substituted = self.substitute(plugin_catalogue([version]))[0]
         self.assertEqual(
             substituted["versions"][0]["artifact"],
-            "https://mirror.example/resources/base64/" + sign_resource_token(encode_resource_url(ARTIFACT_URL)),
+            f"https://mirror.example/resources/base64/{encode_resource_url(ARTIFACT_URL)}."
+            + sign_resource_token(encode_resource_url(ARTIFACT_URL)),
         )
         self.assertEqual(
             substituted["image_url"],
-            "https://mirror.example/resources/base64/" + sign_resource_token(encode_resource_url(IMAGE_URL)),
+            f"https://mirror.example/resources/base64/{encode_resource_url(IMAGE_URL)}."
+            + sign_resource_token(encode_resource_url(IMAGE_URL)),
         )
 
     def test_substitution_preserves_fields_hashes_order_and_original_input(self):

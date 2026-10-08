@@ -26,7 +26,8 @@ from decky_mirror.security import BlockedAddressLookupError
 
 
 def signed_resource_token(url):
-    return sign_resource_token(encode_resource_url(url))
+    token = encode_resource_url(url)
+    return f"{token}.{sign_resource_token(token)}"
 
 
 class ApiTests(unittest.TestCase):
@@ -53,7 +54,7 @@ class ApiTests(unittest.TestCase):
 
     def test_unsigned_and_tampered_tokens_are_rejected_without_upstream_request(self):
         token = encode_resource_url(IMAGE_URL)
-        signed = sign_resource_token(token)
+        signed = f"{token}.{sign_resource_token(token)}"
         signature = signed.split(".")[1]
         changed_signature = ("A" if signature[0] != "A" else "B") + signature[1:]
         invalid_tokens = (
@@ -67,9 +68,13 @@ class ApiTests(unittest.TestCase):
         )
         for invalid in invalid_tokens:
             with self.subTest(token=invalid):
+                main.limiter.reset()
                 response = self.client.get("/resources/base64/" + invalid)
-                self.assertEqual(response.status_code, 403)
-                self.assertEqual(response.json(), {"detail": "Invalid resource signature"})
+                if invalid == token:
+                    self.assertEqual(response.status_code, 404)
+                else:
+                    self.assertEqual(response.status_code, 403)
+                    self.assertEqual(response.json(), {"detail": "Invalid resource signature"})
         self.assertEqual(self.session.requests, [])
 
     def test_signed_url_preserves_unicode_escaping_and_query(self):
@@ -164,7 +169,7 @@ class ApiTests(unittest.TestCase):
     def test_invalid_resources_return_bad_request_without_upstream_request(self):
         for path in (
             "/resources/hash/bad",
-            "/resources/base64/" + sign_resource_token("A"),
+            "/resources/base64/A." + sign_resource_token("A"),
             "/resources/base64/" + signed_resource_token("file:///etc/passwd"),
         ):
             with self.subTest(path=path):
@@ -263,6 +268,52 @@ class ApiTests(unittest.TestCase):
             clock.return_value = 1001.01
             self.assertEqual(self.client.get("/plugins").status_code, 200)
             self.assertEqual(len(self.session.requests), 6)
+
+    def test_signature_attempts_and_valid_signature_share_resource_quota(self):
+        token = encode_resource_url(IMAGE_URL)
+        with patch("limits.storage.memory.time.time", return_value=1000) as clock:
+            for index in range(5):
+                signature = str(index) * 22
+                response = self.client.get(f"/resources/base64/{token}.{signature}")
+                self.assertEqual(response.status_code, 403)
+            self.assertEqual(self.client.get(f"/resources/base64/{token}.{'9' * 22}").status_code, 429)
+            valid_path = "/resources/base64/" + signed_resource_token(IMAGE_URL)
+            self.assertEqual(self.client.get(valid_path).status_code, 429)
+            self.assertEqual(self.session.requests, [])
+            self.session.results.append(FakeResponse())
+            with TestClient(main.app, client=("192.0.2.2", 12345)) as other_client:
+                self.assertEqual(other_client.get(valid_path).status_code, 200)
+            self.session.results.append(FakeResponse())
+            other_path = "/resources/base64/" + signed_resource_token(ARTIFACT_URL)
+            self.assertEqual(self.client.get(other_path).status_code, 200)
+            clock.return_value = 1001.01
+            self.session.results.append(FakeResponse())
+            self.assertEqual(self.client.get(valid_path).status_code, 200)
+
+    def test_installations_share_ip_quota_and_catalogue_is_independent(self):
+        with patch("limits.storage.memory.time.time", return_value=1000):
+            for index in range(5):
+                self.session.results.append(FakeResponse())
+                path = f"/plugins/Plugin{index}/versions/{index}/increment?isUpdate=false"
+                self.assertEqual(self.client.post(path).status_code, 200)
+            self.assertEqual(self.client.post("/plugins/Another/versions/99/increment").status_code, 429)
+            self.assertEqual(len(self.session.requests), 5)
+            self.session.results.append(FakeResponse.catalogue([]))
+            self.assertEqual(self.client.get("/plugins").status_code, 200)
+
+    def test_hash_resources_have_independent_quotas(self):
+        with patch("limits.storage.memory.time.time", return_value=1000):
+            path = "/resources/hash/" + ARCHIVE_HASH
+            self.session.results.extend(FakeResponse() for _ in range(6))
+            for _ in range(5):
+                self.assertEqual(self.client.get(path).status_code, 200)
+            self.assertEqual(self.client.get(path).status_code, 429)
+            self.assertEqual(self.client.get("/resources/hash/" + "b" * 64).status_code, 200)
+
+    def test_empty_signature_does_not_match_resource_route(self):
+        token = encode_resource_url(IMAGE_URL)
+        self.assertEqual(self.client.get(f"/resources/base64/{token}.").status_code, 404)
+        self.assertEqual(self.session.requests, [])
 
     def test_query_parameters_share_the_same_quota(self):
         paths = (

@@ -15,7 +15,7 @@ def sign_resource_token(token: str) -> str:
     return signature
 
 
-def verify_signature(token: str, signature) -> None:
+def verify_signature(token: str, signature: str) -> None:
     if not fullmatch(r"[A-Za-z0-9_=-]+", token) or not fullmatch(r"[A-Za-z0-9_-]{22}", signature):
         raise InvalidResourceSignatureError("Invalid resource signature")
     expected_signature = sign_resource_token(token)
