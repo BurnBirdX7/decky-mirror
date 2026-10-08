@@ -16,7 +16,7 @@ from .catalogue import (
 )
 from .errors import MirrorError
 from .rate_limit import RATE_LIMIT, limiter
-from .resource_signing import unsign_resource_token
+from .resource_signing import verify_signature
 from .upstream import (
     ResourceStreamingResponse,
     UpstreamClient,
@@ -101,11 +101,12 @@ async def resource_by_hash(request: Request, hash: str, client: Client) -> Strea
     return ResourceStreamingResponse(await client.get_resource_with_redirects(destination_url))
 
 
-@resources_api.get("/base64/{signed_base64url}")
+@resources_api.get("/base64/{base64url}.{signature}")
 @limiter.limit(RATE_LIMIT)
-async def resource_by_base64(request: Request, signed_base64url: str, client: Client) -> StreamingResponse:
+async def resource_by_base64(request: Request, base64url: str, signature: str, client: Client) -> StreamingResponse:
     """Verify the signature and relay the URL encoded as padded URL-safe Base64."""
-    destination_url = decode_resource_url(unsign_resource_token(signed_base64url))
+    verify_signature(base64url, signature)
+    destination_url = decode_resource_url(base64url)
     return ResourceStreamingResponse(await client.get_resource_with_redirects(destination_url))
 
 

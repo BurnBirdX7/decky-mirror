@@ -53,9 +53,9 @@ def build_mirror_artifact_url(version: dict[str, Any], domain: str) -> str:
 
 def build_resource_url(url: str, domain: str) -> str:
     parse_url(url)  # Called to validate the resource URL.
-    encoded = encode_resource_url(url)
-    signed = sign_resource_token(encoded)
-    return f"https://{domain}/resources/base64/{signed}"
+    base64url = encode_resource_url(url)
+    signature = sign_resource_token(base64url)
+    return f"https://{domain}/resources/base64/{base64url}.{signature}"
 
 
 def encode_resource_url(url: str) -> str:
