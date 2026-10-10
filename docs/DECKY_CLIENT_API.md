@@ -16,10 +16,10 @@ The custom URL is the **complete catalog endpoint**, including its path. The inc
 
 ## Forming endpoint URLs
 
-Decky uses string concatenation to form **request URLs**. For plugin's API it always adds a `?` after the configured `store_url`.
+Decky uses string concatenation to form **request URLs**. For catalog requests it always adds a `?` after the configured `store_url`.
 Consequently, custom catalog URLs containing:
-- A query (`?`) or fragment (`#`) produces malformed endpoint strings for **catalog** and **increment** paths.
-- A trailing `/` produces a double slash in the **increment** path.
+- a query (`?`) or fragment (`#`) produce incorrect endpoint strings for **catalog** and **increment** paths.
+- a trailing `/` produce a double slash in the **increment** path.
 
 Archive and image URLs come from catalog data. A present, non-null `artifact` is used directly.
 When it is absent or null, Decky uses the version hash as a ZIP filename under the hardcoded CDN base `https://cdn.tzatzikiweeb.moe/file/steam-deck-homebrew/versions/`, independently of the configured catalog endpoint. An empty string does not trigger this fallback.
@@ -70,9 +70,7 @@ A JSON array of plugin objects is expected. The schema below uses type placehold
 ]
 ```
 
-`artifact` is an optional field that Decky loader _can_ handle, but default backend does not provide it.
-Allows custom channel servers to provide
-
+`artifact` is optional. It is absent from the official Store response schema and lets custom stores supply archive URLs.
 
 ## POST — Increment stats
 
@@ -107,7 +105,7 @@ Other HTTP statuses are logged and installation continues. Transport failures ma
 
 ### Request
 
-**Request string**: `https://cdn.tzatzikiweeb.moe/file/steam-deck-homebrew/versions/{hash}.zip` (when no `artifact_url` was provided)
+**Request string**: `https://cdn.tzatzikiweeb.moe/file/steam-deck-homebrew/versions/{hash}.zip` (when `artifact` is absent or null).
 
 | Path parameter | Type   | Meaning                    |
 |----------------|--------|----------------------------|

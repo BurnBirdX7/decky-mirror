@@ -26,7 +26,7 @@ No custom header is required.
 | Parameter        | Type                           | Required | Default      | Meaning                                                                                          |
 |------------------|--------------------------------|----------|--------------|--------------------------------------------------------------------------------------------------|
 | `query`          | String                         | No       | Empty string | Case-insensitive substring match against plugin name only                                        |
-| `tags`           | Repeated strings               | No       | Empty list   | **Has on effect**. Repeated and comma-separated values are accepted                              |
+| `tags`           | Repeated strings               | No       | Empty list   | **Has no effect**. Repeated and comma-separated values are accepted                              |
 | `hidden`         | Boolean                        | No       | `false`      | Selects visible plugins when false and _hidden plugins only_ when true                           |
 | `sort_by`        | `name`, `date`, or `downloads` | No       | Omitted      | Selects name, earliest version creation time, or aggregate downloads; omission selects plugin ID |
 | `sort_direction` | `desc` or `asc`                | No       | `desc`       | `desc` for descending sort, `asc` - for ascending.                                               |
@@ -84,7 +84,7 @@ The body is an array of plugin objects. No matches return `[]`.
 
 **Notes**
 
-Empty `versions` field is permitted
+An empty `versions` array is permitted.
 
 #### 422 - Invalid query parameter
 
@@ -131,25 +131,13 @@ CORS permits the browser origin `https://steamloopback.host`, credentials, all m
 
 #### 200 - Counter incremented
 
-Empty response body.
-
-**Notes**
-
 The requested version's update or download counter was incremented according to `isUpdate`. A subsequent catalog response may not immediately reflect the increment.
 
 #### 404 - Plugin or version not found
 
-Empty response body.
-
-**Notes**
-
 No plugin or version matches the supplied names. This response does not consume the allowance.
 
 #### 429 - Rate allowance exhausted
-
-Empty response body.
-
-**Notes**
 
 The allowance is exhausted. This response can also occur for an unknown version. No rate-limit or `Retry-After` header is supplied.
 
