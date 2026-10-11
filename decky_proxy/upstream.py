@@ -165,7 +165,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             auto_decompress=False,
             cookie_jar=aiohttp.DummyCookieJar(),
             trust_env=False,
-            headers={"User-Agent": f"decky-mirror/{constants.VERSION} (+https://{constants.DOMAIN}/)"},
+            headers={"User-Agent": f"decky-proxy/{constants.VERSION} (+https://{constants.DOMAIN}/)"},
         ) as session:
             application.state.upstream_session = session
             yield

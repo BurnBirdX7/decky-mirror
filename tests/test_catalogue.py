@@ -7,19 +7,19 @@ from unittest.mock import patch
 from tests.support import ARCHIVE_HASH, ARTIFACT_URL, IMAGE_URL, TEST_ENVIRONMENT, plugin_catalogue
 
 with patch.dict(os.environ, TEST_ENVIRONMENT):
-    from decky_mirror.catalogue import (
+    from decky_proxy.catalogue import (
         decode_resource_url,
         encode_resource_url,
         substitute_catalogue_resource_urls,
     )
-    from decky_mirror.resource_signing import sign_resource_token
+    from decky_proxy.resource_signing import sign_resource_token
 
-from decky_mirror.errors import InvalidCatalogueError, InvalidResourceError
+from decky_proxy.errors import InvalidCatalogueError, InvalidResourceError
 
 
 class CatalogueTests(unittest.TestCase):
     def substitute(self, catalogue):
-        return substitute_catalogue_resource_urls(json.dumps(catalogue).encode(), "mirror.example")
+        return substitute_catalogue_resource_urls(json.dumps(catalogue).encode(), "proxy.example")
 
     def test_missing_and_null_artifacts_use_hash_routes(self):
         versions = [
@@ -29,11 +29,11 @@ class CatalogueTests(unittest.TestCase):
         substituted = self.substitute(plugin_catalogue(versions))[0]["versions"]
         self.assertEqual(
             substituted[0]["artifact"],
-            "https://mirror.example/resources/hash/" + ARCHIVE_HASH,
+            "https://proxy.example/resources/hash/" + ARCHIVE_HASH,
         )
         self.assertEqual(
             substituted[1]["artifact"],
-            "https://mirror.example/resources/hash/" + "b" * 64,
+            "https://proxy.example/resources/hash/" + "b" * 64,
         )
 
     def test_explicit_artifact_and_image_use_complete_encoded_urls(self):
@@ -41,12 +41,12 @@ class CatalogueTests(unittest.TestCase):
         substituted = self.substitute(plugin_catalogue([version]))[0]
         self.assertEqual(
             substituted["versions"][0]["artifact"],
-            f"https://mirror.example/resources/base64/{encode_resource_url(ARTIFACT_URL)}."
+            f"https://proxy.example/resources/base64/{encode_resource_url(ARTIFACT_URL)}."
             + sign_resource_token(encode_resource_url(ARTIFACT_URL)),
         )
         self.assertEqual(
             substituted["image_url"],
-            f"https://mirror.example/resources/base64/{encode_resource_url(IMAGE_URL)}."
+            f"https://proxy.example/resources/base64/{encode_resource_url(IMAGE_URL)}."
             + sign_resource_token(encode_resource_url(IMAGE_URL)),
         )
 
@@ -84,7 +84,7 @@ class CatalogueTests(unittest.TestCase):
                 self.subTest(content=content),
                 self.assertRaises(InvalidCatalogueError),
             ):
-                substitute_catalogue_resource_urls(content, "mirror.example")
+                substitute_catalogue_resource_urls(content, "proxy.example")
 
     def test_empty_artifacts_and_invalid_image_urls_are_rejected(self):
         for artifact in ("", "ftp://downloads.example/file", 123):

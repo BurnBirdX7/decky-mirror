@@ -39,11 +39,11 @@ def substitute_version_artifact_url(version: dict[str, Any], domain: str) -> dic
     if not isinstance(version, dict):
         raise InvalidCatalogueError("Invalid upstream version")
     substituted_version = dict(version)
-    substituted_version["artifact"] = build_mirror_artifact_url(version, domain)
+    substituted_version["artifact"] = build_proxy_artifact_url(version, domain)
     return substituted_version
 
 
-def build_mirror_artifact_url(version: dict[str, Any], domain: str) -> str:
+def build_proxy_artifact_url(version: dict[str, Any], domain: str) -> str:
     artifact = version.get("artifact")
     if artifact is not None:
         return build_resource_url(artifact, domain)

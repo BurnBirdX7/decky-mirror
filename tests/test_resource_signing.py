@@ -10,10 +10,10 @@ from unittest.mock import patch
 from tests.support import IMAGE_URL, TEST_ENVIRONMENT
 
 with patch.dict(os.environ, TEST_ENVIRONMENT):
-    from decky_mirror import resource_signing
-    from decky_mirror.catalogue import encode_resource_url
+    from decky_proxy import resource_signing
+    from decky_proxy.catalogue import encode_resource_url
 
-from decky_mirror.errors import InvalidResourceSignatureError
+from decky_proxy.errors import InvalidResourceSignatureError
 
 
 class ResourceSigningTests(unittest.TestCase):
@@ -48,7 +48,7 @@ class ResourceSigningTests(unittest.TestCase):
         code = (
             "from unittest.mock import patch\n"
             "with patch('dotenv.load_dotenv'), patch('secrets.token_bytes', return_value=b'x' * 32) as generate:\n"
-            "    from decky_mirror import resource_signing as signing\n"
+            "    from decky_proxy import resource_signing as signing\n"
             + assertions
         )
         return subprocess.run(
