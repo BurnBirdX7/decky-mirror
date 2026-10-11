@@ -20,17 +20,17 @@ from tests.support import (
 )
 
 with patch.dict(os.environ, TEST_ENVIRONMENT):
-    from decky_mirror import constants
-    from decky_mirror.upstream import ResourceStreamingResponse, UpstreamClient, get_upstream_client, lifespan
+    from decky_proxy import constants
+    from decky_proxy.upstream import ResourceStreamingResponse, UpstreamClient, get_upstream_client, lifespan
 
-from decky_mirror.errors import (
+from decky_proxy.errors import (
     BlockedDestinationError,
     InvalidResourceError,
     RedirectLimitError,
     UpstreamRequestError,
     UpstreamTimeoutError,
 )
-from decky_mirror.security import BlockedAddressLookupError, PublicAddressResolver
+from decky_proxy.security import BlockedAddressLookupError, PublicAddressResolver
 
 
 class UpstreamTests(unittest.IsolatedAsyncioTestCase):
@@ -47,7 +47,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         request = session.requests[0]
         self.assertEqual(request.url.host, "store.example")
         self.assertEqual(request.url.query.getall("tags"), ["one", "two,three"])
-        self.assertEqual(request.options["headers"], {"X-Decky-Version": "3.2.0", "Via": "1.1 mirror.example"})
+        self.assertEqual(request.options["headers"], {"X-Decky-Version": "3.2.0", "Via": "1.1 proxy.example"})
         self.assertFalse(request.options["allow_redirects"])
 
     async def test_increment_encodes_names_and_forwards_boolean(self):
@@ -209,7 +209,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
             session = application.state.upstream_session
             self.assertFalse(session.closed)
             self.assertEqual(
-                session.headers["User-Agent"], f"decky-mirror/{constants.VERSION} (+https://mirror.example/)"
+                session.headers["User-Agent"], f"decky-proxy/{constants.VERSION} (+https://proxy.example/)"
             )
         self.assertTrue(session.closed)
 
@@ -252,7 +252,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(len(forwarded), 4)
                 for outgoing in forwarded:
                     headers = outgoing.options["headers"]
-                    self.assertEqual(headers["Via"], f"{version} mirror.example")
+                    self.assertEqual(headers["Via"], f"{version} proxy.example")
                     self.assertFalse(
                         {name.lower() for name in headers} & {"forwarded", "x-forwarded-for", "user-agent"}
                     )

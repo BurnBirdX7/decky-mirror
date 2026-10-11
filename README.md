@@ -1,7 +1,7 @@
-# Decky Store Mirror
+# Decky Store Proxy
 
-Simple Mirror for Decky Plugin Store.
-![mirror-diagram.svg](docs/diagrams/mirror-diagram.svg)
+A simple proxy for the Decky Plugin Store catalogue and resources.
+![proxy-diagram.svg](docs/diagrams/proxy-diagram.svg)
 
 ## API structure
 
@@ -16,16 +16,16 @@ Catalogue CORS allows `https://steamloopback.host`, `GET`, and the
 
 ### Store API
 
-Mirrors the Decky Store API at `TARGET_STORE_DOMAIN`:
+Proxies the Decky Store API at `TARGET_STORE_DOMAIN`:
 
 - `GET /plugins` — relay the catalogue and substitute resource URLs.
 - `POST /plugins/{plugin_name}/versions/{version_name}/increment` — relay installation statistics.
 
 See the [API of the official store](docs/DECKY_STORE_API.md) and the
 [API consumed by the Decky client](docs/DECKY_CLIENT_API.md).
-Mirror's response always contains `artifact` string:
+The proxy's response always contains an `artifact` string:
 
-| Upstream value                       | Mirror URL                                                     |
+| Upstream value                       | Proxy URL                                                      |
 |--------------------------------------|----------------------------------------------------------------|
 | `artifact` missing or `null`         | `https://${DOMAIN}/resources/hash/${version.hash}`             |
 | `artifact` contains an explicit URL  | `https://${DOMAIN}/resources/base64/${base64url}.${signature}` |
@@ -39,7 +39,7 @@ Mirror's response always contains `artifact` string:
 Catalogue links carry a 22-character signature (HMAC-SHA256 truncated to 16 bytes).
 Unsigned links and invalid signatures return `403` without contacting upstream.
 Links have no expiry; changing the signing key invalidates previously issued links.
-This feature is meant to prevent usage of the mirror as any-destination proxy.
+This feature prevents the service from being used as an arbitrary-destination proxy.
 
 Upstream HTTP statuses and relevant response headers are relayed. Failures after
 resource streaming begins terminate the stream; the upstream response is closed.
@@ -52,7 +52,7 @@ resource streaming begins terminate the stream; the upstream response is closed.
 
 ```sh
 uv sync --locked
-uv run uvicorn decky_mirror.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn decky_proxy.main:app --host 127.0.0.1 --port 8000
 ```
 
 To run the tests:
@@ -66,7 +66,7 @@ All four variables are required. The Python application loads `.env` from the pr
 
 | Variable               | Example                | Purpose                                                |
 |------------------------|------------------------|--------------------------------------------------------|
-| `DOMAIN`               | `decky.example.com`    | Public mirror domain                                   |
+| `DOMAIN`               | `decky.example.com`    | Public proxy domain                                    |
 | `TARGET_STORE_DOMAIN`  | `plugins.deckbrew.xyz` | Upstream Decky store domain                            |
 | `TARGET_CDN_DOMAIN`    | `cdn.tzatzikiweeb.moe` | Upstream CDN domain                                    |
 | `RESOURCE_SIGNING_KEY` | `random`               | Resource link signing secret or random key per process |
@@ -88,11 +88,11 @@ links valid across restarts while that key remains unchanged.
 
 Run Uvicorn on `127.0.0.1:8000` and use Caddy as the public HTTPS entry point.
 For a systemd service, use the following entries in its `[Service]` section,
-replacing `/opt/decky-mirror` with the project directory:
+replacing `/opt/decky-proxy` with the project directory:
 
 ```ini
-WorkingDirectory=/opt/decky-mirror
-ExecStart=/opt/decky-mirror/.venv/bin/uvicorn decky_mirror.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.0/8,::1/128
+WorkingDirectory=/opt/decky-proxy
+ExecStart=/opt/decky-proxy/.venv/bin/uvicorn decky_proxy.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.0/8,::1/128
 ```
 
 Save the following configuration as `Caddyfile`:

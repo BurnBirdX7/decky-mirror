@@ -14,7 +14,7 @@ from .catalogue import (
     decode_resource_url,
     substitute_catalogue_resource_urls,
 )
-from .errors import MirrorError
+from .errors import ProxyError
 from .rate_limit import RATE_LIMIT, limiter
 from .resource_signing import verify_signature
 from .upstream import (
@@ -41,7 +41,7 @@ class CatalogueQuery(BaseModel):
 HOME_HTML = Path(__file__).with_name("home.html").read_text(encoding="utf-8").replace("{{VERSION}}", constants.VERSION)
 
 Client = Annotated[UpstreamClient, Depends(get_upstream_client)]
-app = FastAPI(title="Decky Mirror", version=constants.VERSION, lifespan=lifespan)
+app = FastAPI(title="Decky Proxy", version=constants.VERSION, lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # The IDE reports a protocol mismatch for FastAPI's documented middleware API.
@@ -62,8 +62,8 @@ async def home() -> HTMLResponse:
     return HTMLResponse(HOME_HTML)
 
 
-@app.exception_handler(MirrorError)
-async def handle_mirror_error(request: Request, error: MirrorError) -> JSONResponse:
+@app.exception_handler(ProxyError)
+async def handle_proxy_error(request: Request, error: ProxyError) -> JSONResponse:
     return JSONResponse({"detail": str(error)}, status_code=error.status_code)
 
 
@@ -75,7 +75,7 @@ async def plugins(
     client: Client,
     decky_version: Annotated[str | None, Header(alias="X-Decky-Version")] = None,
 ) -> Response:
-    """Mirror the catalogue, substituting artifact and image URLs with resource URLs."""
+    """Proxy the catalogue, substituting artifact and image URLs with resource URLs."""
     response = await client.get_catalogue(parameters.to_parameters(), decky_version)
     if response.status != 200:
         return response.to_response()

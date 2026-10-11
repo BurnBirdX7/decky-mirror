@@ -17,12 +17,12 @@ from tests.support import (
 )
 
 with patch.dict(os.environ, TEST_ENVIRONMENT):
-    from decky_mirror import main
-    from decky_mirror.upstream import UpstreamClient, get_upstream_client
+    from decky_proxy import main
+    from decky_proxy.upstream import UpstreamClient, get_upstream_client
 
-from decky_mirror.catalogue import encode_resource_url
-from decky_mirror.resource_signing import sign_resource_token
-from decky_mirror.security import BlockedAddressLookupError
+from decky_proxy.catalogue import encode_resource_url
+from decky_proxy.resource_signing import sign_resource_token
+from decky_proxy.security import BlockedAddressLookupError
 
 
 def signed_resource_token(url):
@@ -43,9 +43,9 @@ class ApiTests(unittest.TestCase):
             response = self.client.get("/")
             self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
-        self.assertIn("Decky Mirror " + main.constants.VERSION, response.text)
+        self.assertIn("Decky Proxy " + main.constants.VERSION, response.text)
         self.assertNotIn("{{VERSION}}", response.text)
-        for link in ("https://github.com/BurnBirdX7/decky-mirror", "/docs", "/plugins"):
+        for link in ("https://github.com/BurnBirdX7/decky-proxy", "/docs", "/plugins"):
             self.assertIn(f'href="{link}"', response.text)
         schema = self.client.get("/openapi.json").json()
         self.assertEqual(schema["info"]["version"], main.constants.VERSION)
@@ -104,15 +104,15 @@ class ApiTests(unittest.TestCase):
         plugin = response.json()[0]
         self.assertEqual(
             plugin["versions"][0]["artifact"],
-            "https://mirror.example/resources/hash/" + ARCHIVE_HASH,
+            "https://proxy.example/resources/hash/" + ARCHIVE_HASH,
         )
         self.assertEqual(
             plugin["versions"][1]["artifact"],
-            "https://mirror.example/resources/base64/" + signed_resource_token(ARTIFACT_URL),
+            "https://proxy.example/resources/base64/" + signed_resource_token(ARTIFACT_URL),
         )
         self.assertEqual(
             plugin["image_url"],
-            "https://mirror.example/resources/base64/" + signed_resource_token(IMAGE_URL),
+            "https://proxy.example/resources/base64/" + signed_resource_token(IMAGE_URL),
         )
         self.assertEqual(plugin["unknown_field"], {"preserved": True})
         self.assertEqual(self.session.requests[0].url.query.getall("tags"), ["one", "two,three"])
