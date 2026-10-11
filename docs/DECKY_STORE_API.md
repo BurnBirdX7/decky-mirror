@@ -1,8 +1,8 @@
 # Decky Store Public Plugin API
 
-Source project: [SteamDeckHomebrew/decky-plugin-store](https://github.com/SteamDeckHomebrew/decky-plugin-store/tree/8c41c90438f4c1c60256a12e3c2472112660914e). Branch: `main`. Commit: `8c41c90438f4c1c60256a12e3c2472112660914e`. Checked: 2026-10-10. This document describes pinned source behavior; deployment behavior was not verified.
+This document describes pinned source behavior; deployment behavior was not verified.
 
-Base origin: `https://plugins.deckbrew.xyz`. Scope: public plugin catalog and install/update counters only.
+Source project: [SteamDeckHomebrew/decky-plugin-store](https://github.com/SteamDeckHomebrew/decky-plugin-store/tree/8c41c90438f4c1c60256a12e3c2472112660914e). Branch: `main`. Commit: `8c41c90438f4c1c60256a12e3c2472112660914e`. Checked: 2026-10-10.
 
 ## GET /plugins
 
