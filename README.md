@@ -44,25 +44,9 @@ This feature prevents the service from being used as an arbitrary-destination pr
 Upstream HTTP statuses and relevant response headers are relayed. Failures after
 resource streaming begins terminate the stream; the upstream response is closed.
 
-## Install and run
-
-**Prerequisites**:
-- uv
-- Python 3.14.8 (uv can install the pinned interpreter automatically)
-
-```sh
-uv sync --locked
-uv run uvicorn decky_proxy.main:app --host 127.0.0.1 --port 8000
-```
-
-To run the tests:
-```sh
-uv run python -m unittest discover -s tests -t .
-```
-
 ## Environment variables
 
-All four variables are required. The Python application loads `.env` from the project directory; existing environment variables take precedence. The three domain values are hostnames without a scheme or path.
+All four variables are required. The Python application loads `.env` from the current working directory; existing environment variables take precedence. The three domain values are hostnames without a scheme or path.
 
 | Variable               | Example                | Purpose                                                |
 |------------------------|------------------------|--------------------------------------------------------|
@@ -84,33 +68,15 @@ previous links stop working after a restart and clients must refresh the catalog
 Any other nonempty value is used verbatim as a persistent UTF-8 secret, keeping
 links valid across restarts while that key remains unchanged.
 
-## Setup as systemd service behind Caddy
+## Development
 
-Run Uvicorn on `127.0.0.1:8000` and use Caddy as the public HTTPS entry point.
-For a systemd service, use the following entries in its `[Service]` section,
-replacing `/opt/decky-proxy` with the project directory:
+Prerequisites: uv and Python 3.14.8 (uv downloads it if needed).
+Configure `.env` using the variables above.
 
-```ini
-WorkingDirectory=/opt/decky-proxy
-ExecStart=/opt/decky-proxy/.venv/bin/uvicorn decky_proxy.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.0/8,::1/128
-```
-
-Save the following configuration as `Caddyfile`:
-
-```caddyfile
-YOUR_DOMAIN {
-    reverse_proxy 127.0.0.1:8000
-}
-```
-
-With `DOMAIN` set in its environment, start Caddy:
-
-```sh
-caddy run --config ./Caddyfile --adapter caddyfile
-```
-
-See [Caddy environment variables](https://caddyserver.com/docs/caddyfile/concepts#environment-variables)
-and [automatic HTTPS](https://caddyserver.com/docs/automatic-https).
+- `uv sync --locked` - sync the development environment.
+- `uv build --wheel` - build the release wheel.
+- `uv run uvicorn decky_proxy.main:app --host 127.0.0.1 --port 8000` - run locally.
+- `uv run uvicorn decky_proxy.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.0/8,::1/128` - run behind a local reverse proxy.
 
 ## License
 
@@ -118,4 +84,3 @@ Project code is licensed under the [MIT License](LICENSE).
 
 IconPark icons used in the diagrams are licensed separately under
 [Apache-2.0](docs/diagrams/icons/LICENSE-IconPark.txt).
-
