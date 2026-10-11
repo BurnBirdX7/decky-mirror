@@ -111,3 +111,11 @@ caddy run --config ./Caddyfile --adapter caddyfile
 
 See [Caddy environment variables](https://caddyserver.com/docs/caddyfile/concepts#environment-variables)
 and [automatic HTTPS](https://caddyserver.com/docs/automatic-https).
+
+## License
+
+Project code is licensed under the [MIT License](LICENSE).
+
+IconPark icons used in the diagrams are licensed separately under
+[Apache-2.0](docs/diagrams/icons/LICENSE-IconPark.txt).
+
