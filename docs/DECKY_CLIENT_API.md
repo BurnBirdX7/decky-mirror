@@ -84,9 +84,9 @@ Request string: `{store_url}/{plugin_name}/versions/{version_name}/increment?{qu
 | Plugin name    | String | The catalog entry's `name`.    |
 | Version name   | String | The selected version's `name`. |
 
-| Query parameter | Type                          | Meaning                                                                                                        |
-|-----------------|-------------------------------|----------------------------------------------------------------------------------------------------------------|
-| `isUpdate`      | Boolean (`True` or `False`)    | Whether the requested plugin was already installed. Reinstalls and downgrades of an existing plugin send `True`. |
+| Query parameter | Type                        | Meaning                                                                                                          |
+|-----------------|-----------------------------|------------------------------------------------------------------------------------------------------------------|
+| `isUpdate`      | Boolean (`True` or `False`) | Whether the requested plugin was already installed. Reinstalls and downgrades of an existing plugin send `True`. |
 
 No custom headers, explicit content type, or request body are supplied.
 
